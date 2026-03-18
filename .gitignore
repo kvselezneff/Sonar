@@ -1,0 +1,14 @@
+node_modules/
+*.log
+.playwright-mcp/
+.DS_Store
+Thumbs.db
+
+# Temp Word files
+docs/~$*
+docs/*.wbk
+tmp_*/
+docs/*_copy.zip
+
+# Screenshots
+prototype/screenshot_*.png
