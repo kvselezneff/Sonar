@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>ECHOSWEEPER — Прототип v0.2</title>
+  <title>ECHOSWEEPER — Прототип v0.4</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -36,6 +36,27 @@
     <span id="turn-label">ХОД <span id="turn-val">0</span></span>
   </div>
 
+  <!-- ═══ PHASE BAR ═══ -->
+  <div id="phase-bar">
+    <span class="phase-step active" id="ps-room1">◈ К1</span>
+    <span class="phase-arrow">→</span>
+    <span class="phase-step upcoming" id="ps-shop1">🏛</span>
+    <span class="phase-arrow">→</span>
+    <span class="phase-step upcoming" id="ps-room2">◈ К2</span>
+    <span class="phase-arrow">→</span>
+    <span class="phase-step upcoming" id="ps-shop2">🏛</span>
+    <span class="phase-arrow">→</span>
+    <span class="phase-step upcoming" id="ps-boss1">⚡ Б1</span>
+    <span class="phase-arrow">→</span>
+    <span class="phase-step upcoming" id="ps-shop3">🏛</span>
+    <span class="phase-arrow">→</span>
+    <span class="phase-step upcoming" id="ps-room3">◈ К3</span>
+    <span class="phase-arrow">→</span>
+    <span class="phase-step upcoming" id="ps-shop4">🏛</span>
+    <span class="phase-arrow">→</span>
+    <span class="phase-step upcoming" id="ps-boss2">⚡ Б2</span>
+  </div>
+
   <!-- ═══ GAME AREA ═══ -->
   <div id="game-area">
 
@@ -50,6 +71,27 @@
     <div id="center-col">
       <div id="grid-wrap" class="tool-locator">
         <div id="grid"></div>
+      </div>
+      <!-- Boss bar -->
+      <div id="boss-bar" class="hidden">
+        <div class="boss-stat">
+          <span id="boss-pulse-label" style="color:#4ecdc4">ПУЛЬС: </span>
+          <span id="boss-pulse-val" class="boss-val">7</span>
+          <span class="boss-unit">ходов</span>
+        </div>
+        <div class="boss-stat">
+          <span style="color:#f0d060">ГЛАЗА: </span>
+          <span id="boss-eyes-val" class="boss-val">0/2</span>
+        </div>
+        <div class="boss-stat">
+          <span style="color:#e74c3c">ВРАЖДЕБНЫЕ: </span>
+          <span id="boss-hostile-val" class="boss-val">0</span>
+        </div>
+        <div class="boss-stat" id="boss-emi-stat" style="display:none">
+          <span style="color:#f39c12">ЭМИ: </span>
+          <span id="boss-emi-val" class="boss-val" style="color:#f0d060">10%</span>
+          <span id="boss-emi-blocked" style="font-size:13px;color:#f39c12;margin-left:6px"></span>
+        </div>
       </div>
       <div id="keys-bar"><kbd>L</kbd> Локатор &nbsp; <kbd>E</kbd> Эхолуч &nbsp;&nbsp; <button id="btn-exit-room">🚪 УЙТИ ИЗ КОМНАТЫ</button></div>
       <!-- Tool card slots -->
@@ -104,22 +146,18 @@
 
     <!-- RIGHT: HP + Ephemer tracker -->
     <div id="info-col">
-
       <div id="hp-panel">
         <div class="panel-title">HP</div>
         <div id="hp-display"></div>
       </div>
-
       <div id="eph-panel">
         <div class="panel-title">ЭФЕМЕРЫ</div>
-        <div id="eph-list"><!-- injected --></div>
+        <div id="eph-list"></div>
       </div>
-
       <div id="log-panel">
         <div class="panel-title">ЖУРНАЛ</div>
         <div id="log-entries"></div>
       </div>
-
     </div>
 
   </div><!-- /game-area -->
@@ -143,9 +181,106 @@
     <div id="overlay-title"></div>
     <div id="overlay-sub"></div>
     <div id="overlay-stats"></div>
-    <button id="btn-new-run">НОВЫЙ ЗАБЕГ</button>
+    <button id="btn-overlay-action">ПРОДОЛЖИТЬ</button>
   </div>
 </div>
+
+<!-- ═══ SHOP OVERLAY ═══ -->
+<div id="shop-overlay" class="hidden">
+  <div id="shop-box">
+    <div id="shop-header">
+      <div id="shop-title">🏛 ОРГАНИЗАЦИИ</div>
+      <div id="shop-subtitle"></div>
+    </div>
+
+    <div id="shop-res">
+      <span class="sres teal">ОИ <span id="s-oi">0</span></span>
+      <span class="sres green">🟢 <span id="s-green">0</span></span>
+      <span class="sres yellow">🟡 <span id="s-yellow">0</span></span>
+      <span class="sres gold">💰 <span id="s-money">0</span></span>
+      <span class="sres red">❤ HP <span id="s-hp">3/3</span></span>
+      <span class="sres teal">⚡ <span id="s-bat">3</span>/<span id="s-batmax">7</span>э</span>
+      <span class="sres gold" id="s-shield"></span>
+    </div>
+
+    <div id="shop-msg" class="shop-msg"></div>
+
+    <div id="shop-panels">
+
+      <!-- Hospital -->
+      <div class="org-panel" id="org-hospital">
+        <div class="org-title">🏥 ГОСПИТАЛЬ</div>
+        <div class="org-desc">Восстановление и расширение HP</div>
+        <div class="shop-items">
+          <div class="shop-item">
+            <div class="item-name">Лечение +1 HP</div>
+            <div class="item-cost">3 🟢 эссенции</div>
+            <button class="btn-shop" data-action="heal-essence">Купить</button>
+          </div>
+          <div class="shop-item">
+            <div class="item-name">Лечение +1 HP</div>
+            <div class="item-cost">50 💰 монет</div>
+            <button class="btn-shop" data-action="heal-money">Купить</button>
+          </div>
+          <div class="shop-item">
+            <div class="item-name">Расширение HP +1 макс.</div>
+            <div class="item-cost" id="hp-up-cost">5 🟢 эссенции</div>
+            <button class="btn-shop" data-action="hp-up">Улучшить</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Institute -->
+      <div class="org-panel" id="org-institute">
+        <div class="org-title">🔬 ИНСТИТУТ</div>
+        <div class="org-desc">Исследования и батарея</div>
+        <div class="shop-items">
+          <div class="shop-item">
+            <div class="item-name">Батарея +1 лимит</div>
+            <div class="item-cost" id="bat-up-cost">5 🟡 жёлт. эфира</div>
+            <button class="btn-shop" data-action="battery-up">Улучшить</button>
+          </div>
+          <div class="shop-item">
+            <div class="item-name">Зарядка +3э</div>
+            <div class="item-cost">20 ОИ</div>
+            <button class="btn-shop" data-action="battery-charge">Купить</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Black Market -->
+      <div class="org-panel" id="org-market">
+        <div class="org-title">💼 ЧЁРНЫЙ РЫНОК</div>
+        <div class="org-desc">Торговля и расходники</div>
+        <div class="shop-items">
+          <div class="shop-item">
+            <div class="item-name">Продать эссенцию</div>
+            <div class="item-cost">×10м за штуку</div>
+            <button class="btn-shop" data-action="sell-green">Продать всё</button>
+          </div>
+          <div class="shop-item">
+            <div class="item-name">Продать эфир</div>
+            <div class="item-cost">×15м за штуку</div>
+            <button class="btn-shop" data-action="sell-yellow">Продать всё</button>
+          </div>
+          <div class="shop-item">
+            <div class="item-name">Резонансный щит</div>
+            <div class="item-cost">40 💰 монет</div>
+            <button class="btn-shop" data-action="buy-shield">Купить</button>
+          </div>
+          <div class="shop-item">
+            <div class="item-name">Повербанк (+3э)</div>
+            <div class="item-cost">50 💰 монет</div>
+            <button class="btn-shop" data-action="buy-powerbank">Купить</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /shop-panels -->
+
+    <button id="btn-shop-continue">→ ПРОДОЛЖИТЬ</button>
+  </div><!-- /shop-box -->
+</div><!-- /shop-overlay -->
 
 <script src="js/game.js"></script>
 </body>
