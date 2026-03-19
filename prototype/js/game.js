@@ -709,14 +709,16 @@ function doEchobeamer(c) {
     addLog(`✅ Зелёный. +1 эссенция +1 ОИ. –${ECHO_COST}э.`, 'ok');
     SFX.green();
   } else if (eph.type === 'yellow') {
+    S.player.res.yellow++;  // сгусток выдаётся всегда
     const room = S.player.batMax - S.player.battery;
     if (room >= 4) {
       addEnergy(4, false);
-      addLog(`✅ Жёлтый. +4э. Итого: ${S.player.battery}/${S.player.batMax}.`, 'ok');
+      addLog(`✅ Жёлтый. +4э +1 сгусток. Итого: ${S.player.battery}/${S.player.batMax}.`, 'ok');
+    } else if (room > 0) {
+      addEnergy(room, false);
+      addLog(`✅ Жёлтый. Батарея почти полна. +${room}э +1 сгусток.`, 'ok');
     } else {
-      if (room > 0) addEnergy(room, false);
-      S.player.res.yellow++;
-      addLog(`✅ Жёлтый. Батарея полна. +1 эфир.`, 'ok');
+      addLog(`✅ Жёлтый. Батарея полна. +1 сгусток.`, 'ok');
     }
     SFX.yellow();
   }
@@ -916,9 +918,9 @@ function shopAction(action) {
       const idx = RUN.batUpgrades;
       if (idx >= BAT_UPGRADE_COSTS.length) { msg = '❌ Максимум улучшений батареи'; break; }
       const cost = BAT_UPGRADE_COSTS[idx];
-      if (res.yellow < cost) { msg = `❌ Нужно ${cost} жёлт. эфира`; break; }
+      if (res.yellow < cost) { msg = `❌ Нужно ${cost} жёлт. сгустка`; break; }
       res.yellow -= cost; RUN.batMax++; RUN.batUpgrades++;
-      msg = `🔋 Батарея макс. +1 → ${RUN.batMax}. Следующее: ${BAT_UPGRADE_COSTS[idx+1] ?? '—'}`;
+      msg = `🔋 Батарея макс. +1 → ${RUN.batMax}. Следующее: ${BAT_UPGRADE_COSTS[idx+1] ? BAT_UPGRADE_COSTS[idx+1] + ' сгустков' : '—'}`;
       break;
     }
     case 'battery-charge':
@@ -932,8 +934,8 @@ function shopAction(action) {
       { const ge = res.green * 10; res.money += ge; msg = `💰 Продано ${res.green} эссенции за ${ge}м.`; res.green = 0; }
       break;
     case 'sell-yellow':
-      if (res.yellow === 0) { msg = '❌ Нет жёлт. эфира'; break; }
-      { const ye = res.yellow * 15; res.money += ye; msg = `💰 Продано ${res.yellow} эфира за ${ye}м.`; res.yellow = 0; }
+      if (res.yellow === 0) { msg = '❌ Нет жёлт. сгустка'; break; }
+      { const ye = res.yellow * 15; res.money += ye; msg = `💰 Продано ${res.yellow} сгустков за ${ye}м.`; res.yellow = 0; }
       break;
     case 'buy-shield':
       if (RUN.inventory.length >= 2) { msg = '❌ Оба слота заняты'; break; }
@@ -1375,7 +1377,7 @@ function renderOverlay() {
   }
   rows.push(['']);
   rows.push(['Эссенция:', p.res.green]);
-  rows.push(['Эфир:', p.res.yellow]);
+  rows.push(['Сгустки:', p.res.yellow]);
   rows.push(['Монеты:', p.res.money]);
 
   const statsEl = document.getElementById('overlay-stats');
@@ -1421,7 +1423,7 @@ function renderShopOverlay() {
   const batIdx  = RUN.batUpgrades;
   const batCostEl = document.getElementById('bat-up-cost');
   if (batCostEl) batCostEl.textContent =
-    batIdx < BAT_UPGRADE_COSTS.length ? `${BAT_UPGRADE_COSTS[batIdx]} 🟡 жёлт. эфира` : 'МАКСИМУМ';
+    batIdx < BAT_UPGRADE_COSTS.length ? `${BAT_UPGRADE_COSTS[batIdx]} 🟡 сгустков` : 'МАКСИМУМ';
 
   const hpIdx  = RUN.hpUpgrades;
   const hpCostEl = document.getElementById('hp-up-cost');
