@@ -492,7 +492,26 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
   display: flex; flex-direction: column; gap: 5px;
 }
 .item-name { font-size: 17px; color: var(--text); }
-.item-cost { font-size: 15px; color: var(--dim); }
+.item-cost { font-size: 15px; color: #7ab8d8; }
+
+/* ─── SHOP ITEM BADGE ────────────────────────────── */
+.shop-item { position: relative; }
+.item-badge {
+  position: absolute;
+  top: 7px; right: 9px;
+  font-size: 18px;
+  opacity: .75;
+  pointer-events: none;
+  line-height: 1;
+}
+
+/* ─── EPHEMER EFFECT LINE ────────────────────────── */
+.eph-effect {
+  font-size: 13px;
+  margin-top: 3px;
+  opacity: .85;
+  font-style: italic;
+}
 .btn-shop {
   background: none;
   border: 1px solid var(--border);
@@ -536,4 +555,47 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
 .ms-cell { width: 10px; height: 10px; border-radius: 1px; background: transparent; }
 .ms-cell.seg-green  { background: rgba(46,204,113,.7); }
 .ms-cell.seg-yellow { background: rgba(243,156,18,.7); }
+.ms-cell.seg-red    { background: rgba(231,76,60,.7); }
+.ms-cell.seg-blue   { background: rgba(78,205,196,.7); }
 .ms-cell.seg-mem    { background: var(--gold); }
+
+/* ─── RED EPHEMERS ───────────────────────────────── */
+.open-red   { background:rgba(231,76,60,.12); border:1px solid rgba(231,76,60,.3); color:rgba(231,76,60,.5); }
+.scanned-red { background:rgba(231,76,60,.25); border:1px solid rgba(231,76,60,.6); color:var(--red); box-shadow:0 0 10px rgba(231,76,60,.4); }
+.eph-card.red-eph  { border-color: rgba(231,76,60,.4); }
+.eph-icon.red-icon { background: rgba(231,76,60,.2); color: var(--red); }
+
+/* ─── BLUE EPHEMERS ──────────────────────────────── */
+.open-blue   { background:rgba(78,205,196,.12); border:1px solid rgba(78,205,196,.3); color:rgba(78,205,196,.5); }
+.scanned-blue { background:rgba(78,205,196,.25); border:1px solid rgba(78,205,196,.6); color:var(--teal); box-shadow:0 0 10px rgba(78,205,196,.4); }
+.eph-card.blue-eph  { border-color: rgba(78,205,196,.4); }
+.eph-icon.blue-icon { background: rgba(78,205,196,.2); color: var(--teal); }
+
+/* ─── PURPLE EPHEMERS (Варп / Проклятые) ─────────── */
+.open-purple   { background:rgba(155,89,182,.12); border:1px solid rgba(155,89,182,.3); color:rgba(155,89,182,.5); }
+.scanned-purple { background:rgba(155,89,182,.25); border:1px solid rgba(155,89,182,.6); color:var(--purple); box-shadow:0 0 10px rgba(155,89,182,.4); }
+.eph-card.purple-eph  { border-color: rgba(155,89,182,.4); }
+.eph-icon.purple-icon { background: rgba(155,89,182,.2); color: var(--purple); }
+.ms-cell.seg-purple   { background: rgba(155,89,182,.7); }
+
+/* Combo-лампочки при инверсии */
+.combo-lamp.invert { background: var(--purple) !important; box-shadow: 0 0 6px rgba(155,89,182,.8) !important; }
+
+/* Кнопка Варп */
+#btn-warp {
+  background: rgba(155,89,182,.15);
+  border: 1px solid var(--purple);
+  color: var(--purple);
+  padding: 4px 12px;
+  cursor: pointer;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  border-radius: 3px;
+  margin-left: 8px;
+}
+#btn-warp:hover { background: rgba(155,89,182,.3); }
+#btn-warp.hidden { display: none; }
+
+/* Варп-эссенция в res-bar */
+#res-warp { transition: opacity 0.2s; }
+#res-warp.hidden { display: none; }

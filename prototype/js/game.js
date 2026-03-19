@@ -1,17 +1,34 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
-//  ECHOSWEEPER — Prototype v0.4
-//  New: 2 bosses + room 3, reworked hostile mechanics, HP/bat upgrades
+//  ECHOSWEEPER — Prototype v0.6
+//  New: purple ephemers (inversion + Warp), final victory screen with full run stats
 // ═══════════════════════════════════════════════════════════════════
 
 // ─── CONSTANTS ────────────────────────────────────────────────────
 const HP_MAX_BASE              = 3;
-const BAT_MAX_BASE             = 6;   // was 7, reduced per bug report
+const BAT_MAX_BASE             = 6;
 const BAT_START                = 3;
 const ECHO_COST                = 2;
-const HOSTILE_BOSS_SEG_TURNS   = 3;   // expires after 3 turns if on boss segment
-// Boss 2 EMI pulse: escalating probability each pulse, resets after EMI fires
-const EMI_PROBS = [0.10, 0.30, 0.50, 1.00];
+const HOSTILE_BOSS_SEG_TURNS   = 3;
+const RED_AGGR_INTERVAL        = 3;   // red ephemer generates hostile cell every N turns
+
+// ─── EPHEMER EFFECT DESCRIPTIONS ─────────────────────────────────
+// Shown in tracker after first Echobeam on this ephemer (or if known from prev run)
+const EPH_EFFECTS_ECHO = {
+  green:  'Эхолуч: +1 эссенция, +1 ОИ',
+  yellow: 'Эхолуч: +4 энергии (без перегрузки), +1 сгусток',
+  red:    'Эхолуч: агрессия + 30% → жемчуг',
+  blue:   'Эхолуч: 50% страх (5 ходов) + 20% → ксилла (+10 ОИ)',
+  purple: 'Эхолуч: ресурс / ±1 HP / Варп-эссенция',
+};
+// Shown only after Locator was used on this ephemer (or if known from prev run)
+const EPH_EFFECTS_LOC = {
+  green:  null,
+  yellow: 'Локатор: взрыв 3×3, +2 энергии',
+  red:    'Локатор: активирует агрессию',
+  blue:   'Локатор: испугать (5 ходов до побега)',
+  purple: 'Локатор: ИНВЕРСИЯ (пустые = –1 энергии)',
+};
 
 // ─── BOSS SHAPES ──────────────────────────────────────────────────
 // Boss 1: «Медленный Пульс» — 24 сег., 2 Глаза
@@ -28,6 +45,7 @@ const BOSS1_SHAPE = {
 };
 
 // Boss 2: «Хаотический Разряд» — 34 сег., 3 Глаза
+// Глаза зигзагом: [3,1] верх-лево, [8,1] верх-право, [5,3] низ-центр — треугольник
 const BOSS2_SHAPE = {
   name: 'Хаотический Разряд',
   cells: [
@@ -38,10 +56,25 @@ const BOSS2_SHAPE = {
     [3,4],[4,4],[5,4],[6,4],[7,4],                                 // row4  idx 26-30
     [4,5],[5,5],[6,5],                                             // row5  idx 31-33
   ],
-  eyeIndices: [6, 14, 22],   // [5,1], [5,2], [5,3] — vertical spine
+  eyeIndices: [4, 9, 22],   // [3,1] верх-лево, [8,1] верх-право, [5,3] низ-центр
 };
 
-const BOSS_SHAPES = [BOSS1_SHAPE, BOSS2_SHAPE];
+// Boss 3: «Абсолютный Резонанс» — 40 сег., 4 Глаза разбросаны
+// Глаза по «компасу»: верх-центр, лево, право, низ
+const BOSS3_SHAPE = {
+  name: 'Абсолютный Резонанс',
+  cells: [
+    [5,0],[6,0],[7,0],[8,0],                                                    // row0 idx 0-3
+    [3,1],[4,1],[5,1],[6,1],[7,1],[8,1],[9,1],[10,1],                           // row1 idx 4-11
+    [2,2],[3,2],[4,2],[5,2],[6,2],[7,2],[8,2],[9,2],[10,2],[11,2],              // row2 idx 12-21
+    [3,3],[4,3],[5,3],[6,3],[7,3],[8,3],[9,3],[10,3],                           // row3 idx 22-29
+    [4,4],[5,4],[6,4],[7,4],[8,4],[9,4],                                        // row4 idx 30-35
+    [5,5],[6,5],[7,5],[8,5],                                                    // row5 idx 36-39
+  ],
+  eyeIndices: [0, 12, 21, 37],  // [5,0] верх, [2,2] лево, [11,2] право, [6,5] низ
+};
+
+const BOSS_SHAPES = [BOSS1_SHAPE, BOSS2_SHAPE, BOSS3_SHAPE];
 
 // ─── PREDEFINED SHAPES ────────────────────────────────────────────
 const GREEN_SHAPES = [
@@ -56,6 +89,21 @@ const YELLOW_SHAPES = [
   { name: 'Мини-Г', cells: [[0,0],[1,0],[2,0],[2,1]], memIdx: 0 },
   { name: 'Мини-Т', cells: [[0,0],[1,0],[2,0],[1,1]], memIdx: 1 },
   { name: 'Крюк',   cells: [[0,0],[0,1],[1,1],[1,2]], memIdx: 0 },
+];
+const RED_SHAPES = [
+  { name: 'Коготь', cells: [[0,0],[1,0],[2,0],[2,1],[2,2]], memIdx: 2 },
+  { name: 'Шип',    cells: [[1,0],[0,1],[1,1],[0,2],[1,2]], memIdx: 2 },
+  { name: 'Захват', cells: [[0,0],[2,0],[0,1],[1,1],[2,1]], memIdx: 1 },
+];
+const BLUE_SHAPES = [
+  { name: 'Линза',  cells: [[1,0],[0,1],[1,1],[2,1],[1,2]], memIdx: 2 },
+  { name: 'Луч',    cells: [[0,0],[1,0],[2,0],[3,0],[4,0]], memIdx: 2 },
+  { name: 'Стрела', cells: [[2,0],[0,1],[1,1],[2,1],[2,2]], memIdx: 0 },
+];
+const PURPLE_SHAPES = [
+  { name: 'Призма',  cells: [[1,0],[0,1],[1,1],[2,1],[1,2]], memIdx: 1 },
+  { name: 'Скоба',   cells: [[0,0],[0,1],[1,1],[0,2],[0,3]], memIdx: 2 },
+  { name: 'Варп-Г',  cells: [[0,0],[1,0],[2,0],[0,1],[0,2]], memIdx: 0 },
 ];
 
 // ─── ROOM CONFIGS ─────────────────────────────────────────────────
@@ -72,22 +120,40 @@ const ROOM_CONFIGS = [
     ephConfig: [
       { type: 'green',  shapes: GREEN_SHAPES,  count: 3 },
       { type: 'yellow', shapes: YELLOW_SHAPES, count: 2 },
+      { type: 'red',    shapes: RED_SHAPES,    count: 1 },
     ],
   },
   {
     label: '⚡ БОСС 1', gridW: 12, gridH: 12, cellSize: 38, isBoss: true, bossIdx: 0, pulseInterval: 5,
-    ephConfig: null,
+    pulseHostileCount: 2, ephConfig: null,
   },
   {
     label: 'Комната 3', gridW: 10, gridH: 10, cellSize: 46, isBoss: false, bossIdx: null, pulseInterval: 5,
     ephConfig: [
       { type: 'green',  shapes: GREEN_SHAPES,  count: 3 },
-      { type: 'yellow', shapes: YELLOW_SHAPES, count: 3 },
+      { type: 'yellow', shapes: YELLOW_SHAPES, count: 2 },
+      { type: 'red',    shapes: RED_SHAPES,    count: 1 },
+      { type: 'blue',   shapes: BLUE_SHAPES,   count: 1 },
+      { type: 'purple', shapes: PURPLE_SHAPES, count: 1 },
     ],
   },
   {
     label: '⚡ БОСС 2', gridW: 14, gridH: 14, cellSize: 32, isBoss: true, bossIdx: 1, pulseInterval: 3,
-    ephConfig: null,
+    pulseHostileCount: 2, emiProbs: [0.10, 0.30, 0.50, 1.00], ephConfig: null,
+  },
+  {
+    label: 'Комната 4', gridW: 10, gridH: 10, cellSize: 46, isBoss: false, bossIdx: null, pulseInterval: 5,
+    ephConfig: [
+      { type: 'green',  shapes: GREEN_SHAPES,  count: 2 },
+      { type: 'yellow', shapes: YELLOW_SHAPES, count: 2 },
+      { type: 'red',    shapes: RED_SHAPES,    count: 2 },
+      { type: 'blue',   shapes: BLUE_SHAPES,   count: 1 },
+      { type: 'purple', shapes: PURPLE_SHAPES, count: 1 },
+    ],
+  },
+  {
+    label: '⚡ БОСС 3', gridW: 16, gridH: 16, cellSize: 24, isBoss: true, bossIdx: 2, pulseInterval: 2,
+    pulseHostileCount: 3, emiProbs: [0.20, 0.50, 0.80, 1.00], ephConfig: null,
   },
 ];
 
@@ -114,31 +180,24 @@ function getAudio() {
   if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   return _audioCtx;
 }
-// Sonar ping: sine chirp + faint echo, pitch controlled by lamp index (0–4)
 const SONAR_FREQS = [260, 350, 470, 620, 840];
 function playSonarPing(lampIdx) {
   try {
     const ctx  = getAudio();
     const freq = SONAR_FREQS[Math.min(lampIdx, SONAR_FREQS.length - 1)];
-
-    // ── Main ping (3× duration, slow fade-out) ───────────────────
     const osc  = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain); gain.connect(ctx.destination);
     osc.type = 'sine';
-    // Upward chirp: starts 8% below target, sweeps to 3% above, settles
     osc.frequency.setValueAtTime(freq * 0.92, ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(freq * 1.03, ctx.currentTime + 0.15);
     osc.frequency.exponentialRampToValueAtTime(freq,        ctx.currentTime + 0.36);
-    // Envelope: near-instant attack, sustain 30%, then slow exponential decay
     gain.gain.setValueAtTime(0.001, ctx.currentTime);
     gain.gain.linearRampToValueAtTime(0.38,  ctx.currentTime + 0.027);
-    gain.gain.setValueAtTime(0.38,           ctx.currentTime + 0.50);  // sustain
+    gain.gain.setValueAtTime(0.38,           ctx.currentTime + 0.50);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.65);
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 1.65);
-
-    // ── Faint echo (~900 ms later, half volume) ──────────────────
     const osc2  = ctx.createOscillator();
     const gain2 = ctx.createGain();
     osc2.connect(gain2); gain2.connect(ctx.destination);
@@ -160,7 +219,6 @@ function playTone(freq, dur = 0.45, type = 'sine', vol = 0.2) {
     osc.connect(gain); gain.connect(ctx.destination);
     osc.type = type;
     osc.frequency.setValueAtTime(freq, ctx.currentTime);
-    // Sustain 30%, then slow exponential fade-out
     gain.gain.setValueAtTime(vol, ctx.currentTime);
     gain.gain.setValueAtTime(vol, ctx.currentTime + dur * 0.3);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
@@ -171,6 +229,8 @@ const SFX = {
   oi:      () => playTone(880, 0.36, 'sine',     0.2),
   green:   () => playTone(523, 0.45, 'triangle', 0.25),
   yellow:  () => { playTone(660, 0.3, 'sine', 0.2); setTimeout(() => playTone(880, 0.3, 'sine', 0.15), 240); },
+  red:     () => { playTone(220, 0.4, 'sawtooth', 0.28); setTimeout(() => playTone(180, 0.6, 'sawtooth', 0.22), 300); },
+  blue:    () => { playTone(440, 0.5, 'triangle', 0.2); setTimeout(() => playTone(550, 0.4, 'triangle', 0.18), 200); },
   money:   () => { playTone(660, 0.21, 'square', 0.12); setTimeout(() => playTone(880, 0.21, 'square', 0.12), 210); },
   battery: () => playTone(330, 0.36, 'triangle', 0.2),
   warn:    () => { [0, 450, 900].forEach(d => setTimeout(() => playTone(180, 0.36, 'sawtooth', 0.3), d)); },
@@ -180,12 +240,12 @@ const SFX = {
   shop:      () => { playTone(440, 0.3, 'sine', 0.15); setTimeout(() => playTone(550, 0.45, 'sine', 0.2), 300); },
   blocked:   () => playTone(120, 0.6, 'square', 0.25),
   emi:       () => {
-    // EMP buzz: descending electric sweep
     [0, 90, 200, 360].forEach((d, i) =>
       setTimeout(() => playTone(260 - i * 45, 0.45, 'sawtooth', 0.32 - i * 0.05), d)
     );
   },
   sonarPing: (i) => playSonarPing(i),
+  purple:  () => { playTone(350, 0.6, 'triangle', 0.2); setTimeout(() => playTone(280, 0.8, 'sine', 0.15), 320); },
 };
 
 // ─── PERSISTENT STATE (survives newRun) ───────────────────────────
@@ -206,8 +266,25 @@ function initRun() {
     batUpgrades: 0,
     battery:     BAT_START,
     comboNums:   0,
-    res:         { green: 0, yellow: 0, pearl: 0, money: 0, oi: 0 },
-    inventory:   [],   // consumable items in card slots (max 2)
+    res:         { green: 0, yellow: 0, pearl: 0, money: 0, oi: 0, warpEssence: 0 },
+    inventory:   [],
+    colorCounts: { green: 0, yellow: 0, red: 0, blue: 0, purple: 0 },
+    shapeCounts: {},
+    stats: {
+      totalTurns:     0,
+      emptyCells:     0,
+      numberCells:    0,
+      segsScanned:    0,
+      oiEarned:       0,
+      dmgOverload:    0,
+      dmgEphemeral:   0,
+      resEarned:      { green: 0, yellow: 0, pearl: 0, money: 0 },
+      ephemersMet:    0,
+      ephemersClean:  0,
+      ephemersLost:   0,
+      ephemersEscaped:0,
+      bossesKilled:   0,
+    },
   };
 }
 
@@ -233,6 +310,8 @@ function startRoom(roomIdx) {
       res:         { ...RUN.res },
       comboNums:   RUN.comboNums,
       inventory:   [...RUN.inventory],
+      colorCounts: { ...RUN.colorCounts },
+      shapeCounts: { ...RUN.shapeCounts },
     },
     tool:         'locator',
     turn:         0,
@@ -241,9 +320,11 @@ function startRoom(roomIdx) {
     log:          [],
     pulseTimer:      cfg.pulseInterval,
     hostileCells:    [],
-    emiPulseCount:   0,     // how many pulses since last EMI (Boss 2 only)
-    emiBlockedSlot:  null,  // card index 1–3 blocked for 1 turn (null = none)
-    newEmptyCells: new Set(),
+    emiPulseCount:   0,
+    emiBlockedSlot:  null,
+    newEmptyCells:   new Set(),
+    invertActive:    false,
+    warpSnapshot:    null,
     stats: {
       emptyCells:   0,
       numberCells:  0,
@@ -251,16 +332,18 @@ function startRoom(roomIdx) {
       oiEarned:     0,
       dmgOverload:  0,
       dmgEphemeral: 0,
+      resStart:     { ...RUN.res },  // snapshot for «заработано в этой комнате»
     },
   };
   if (cfg.isBoss) placeBoss(cfg.bossIdx);
   else            placeEphemers(cfg.ephConfig);
   calcResonance();
+  tickPurpleInversion();  // set invertActive correctly from turn 0
   hideShopOverlay();
   renderAll();
   const bossMsg = cfg.isBoss
-    ? `⚡ Найди и просканируй все Глаза Эхолучом!`
-    : `${S.ephemers.length} Эфемера в секторе.`;
+    ? `Уничтожь все Глаза Эхолучом → остановишь пульс. Затем добей босса!`
+    : `${S.ephemers.length} эфемеров в секторе.`;
   addLog(`📻 ${cfg.label}. ${bossMsg}`, 'info');
   renderLog();
 }
@@ -275,6 +358,34 @@ function saveRoomToRun() {
   RUN.comboNums   = S.player.comboNums;
   RUN.res         = { ...S.player.res };
   RUN.inventory   = [...S.player.inventory];
+  RUN.colorCounts = { ...S.player.colorCounts };
+  RUN.shapeCounts = { ...S.player.shapeCounts };
+
+  // Accumulate room stats into run-wide stats
+  const rs = S.stats;
+  const ps = S.stats.resStart;
+  const p  = S.player;
+  RUN.stats.totalTurns    += S.turn;
+  RUN.stats.emptyCells    += rs.emptyCells;
+  RUN.stats.numberCells   += rs.numberCells;
+  RUN.stats.segsScanned   += rs.segsScanned;
+  RUN.stats.oiEarned      += rs.oiEarned;
+  RUN.stats.dmgOverload   += rs.dmgOverload;
+  RUN.stats.dmgEphemeral  += rs.dmgEphemeral;
+  RUN.stats.resEarned.green  += Math.max(0, p.res.green  - ps.green);
+  RUN.stats.resEarned.yellow += Math.max(0, p.res.yellow - ps.yellow);
+  RUN.stats.resEarned.pearl  += Math.max(0, p.res.pearl  - ps.pearl);
+  RUN.stats.resEarned.money  += Math.max(0, p.res.money  - ps.money);
+  S.ephemers.forEach(e => {
+    if (e.type === 'boss') {
+      if (e.done) RUN.stats.bossesKilled++;
+      return;
+    }
+    RUN.stats.ephemersMet++;
+    if (e.done && e.opened === 0) RUN.stats.ephemersClean++;
+    if (e.done && e.opened > 0)  RUN.stats.ephemersLost += e.opened;
+    if (e.type === 'blue' && e.escaped) RUN.stats.ephemersEscaped++;
+  });
 }
 
 // ─── GRID ─────────────────────────────────────────────────────────
@@ -298,7 +409,7 @@ const nb8 = (x, y) => {
   return r;
 };
 
-// ─── EPHEMER PLACEMENT (3 attempts, pick fewest empty cells) ──────
+// ─── EPHEMER PLACEMENT ────────────────────────────────────────────
 function placeEphemers(ephConfig) {
   let bestGrid = null, bestEphemers = null, bestScore = Infinity;
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -338,7 +449,13 @@ function _placeEphemersOnGrid(grid, ephemers, ephConfig) {
         id: ephemers.length, type: cfg.type, name: shapeDef.name,
         segs: placed, scanned: 0, opened: 0,
         done: false, triggered: false,
-        discovered: encyclopedia.has(shapeDef.name),  // fix: mark known
+        discovered: encyclopedia.has(shapeDef.name),
+        // red: aggressive state
+        aggrActive: false, aggrTimer: RED_AGGR_INTERVAL,
+        // blue: fear/escape state
+        fearActive: false, fearTimer: 5, escaped: false,
+        // discovery tracking
+        locatorHit: false,
       };
       placed.forEach(s => {
         const c = grid[s.y][s.x];
@@ -404,6 +521,7 @@ function placeBoss(bossIdx) {
     segs, scanned: 0, opened: 0,
     done: false, triggered: false, discovered: true,
     eyesScanned: 0, totalEyes: shape.eyeIndices.length,
+    eyesNeutralized: false,  // true when all eyes destroyed → pulse/EMI stop, exit unlocks
   };
   segs.forEach(s => {
     const c = cell(s.x, s.y);
@@ -417,23 +535,27 @@ function calcResonance() {
   _calcResOnGrid(S.grid, S.gridW, S.gridH);
 }
 
-// ─── BOSS PULSE ───────────────────────────────────────────────────
-function tickBossPulse() {
-  const cfg = ROOM_CONFIGS[currentRoomIdx];
-  if (!cfg.isBoss || S.phase !== 'playing') return;
-
-  // Only boss-segment hostiles have a timer; permanent ones stay forever
+// ─── SHARED HOSTILE CELL CLEANUP ──────────────────────────────────
+function tickHostileCells() {
   S.hostileCells = S.hostileCells.filter(h => {
     if (h.permanent) return true;
     h.turnsLeft--;
     return h.turnsLeft > 0;
   });
-
-  // Sync isHostile flags on grid
   for (let y = 0; y < S.gridH; y++)
     for (let x = 0; x < S.gridW; x++)
       S.grid[y][x].isHostile = false;
   S.hostileCells.forEach(h => { const c = cell(h.x, h.y); if (c) c.isHostile = true; });
+}
+
+// ─── BOSS PULSE ───────────────────────────────────────────────────
+function tickBossPulse() {
+  const cfg = ROOM_CONFIGS[currentRoomIdx];
+  if (!cfg.isBoss || S.phase !== 'playing') return;
+  const boss = S.ephemers[0];
+  if (boss?.eyesNeutralized) return;  // Eyes destroyed — no more pulse
+
+  tickHostileCells();
 
   S.pulseTimer--;
   if (S.pulseTimer <= 0) {
@@ -442,10 +564,79 @@ function tickBossPulse() {
   }
 }
 
+// ─── RED EPHEMER AGGRESSION ───────────────────────────────────────
+// Per-ephemer: every RED_AGGR_INTERVAL turns while aggrActive → –1 HP directly
+function tickRedAggression() {
+  if (ROOM_CONFIGS[currentRoomIdx].isBoss) return;
+  S.ephemers.forEach(eph => {
+    if (eph.type !== 'red' || eph.done || !eph.aggrActive) return;
+    eph.aggrTimer--;
+    if (eph.aggrTimer <= 0) {
+      eph.aggrTimer = RED_AGGR_INTERVAL;
+      const nm = eph.discovered ? eph.name : 'Красный эфемер';
+      addLog(`🔴 ${nm} АТАКУЕТ! –1 HP!`, 'err');
+      takeDamage(1);
+      SFX.red();
+    }
+  });
+}
+
+// ─── BLUE EPHEMER FEAR / ESCAPE ───────────────────────────────────
+function stealResources(count) {
+  const p = S.player;
+  const pool = [];
+  for (let i = 0; i < p.res.green;  i++) pool.push('green');
+  for (let i = 0; i < p.res.yellow; i++) pool.push('yellow');
+  for (let i = 0; i < p.res.pearl;  i++) pool.push('pearl');
+  for (let i = 0; i < Math.floor(p.res.money / 10); i++) pool.push('money');
+  const toSteal = Math.min(count, pool.length);
+  for (let i = 0; i < toSteal; i++) {
+    const j = i + Math.floor(Math.random() * (pool.length - i));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+    const r = pool[i];
+    if      (r === 'green')  p.res.green--;
+    else if (r === 'yellow') p.res.yellow--;
+    else if (r === 'pearl')  p.res.pearl--;
+    else if (r === 'money')  p.res.money -= 10;
+  }
+  return toSteal;
+}
+
+function blueEscape(eph) {
+  eph.done    = true;
+  eph.escaped = true;
+  eph.segs.forEach(s => {
+    const c = cell(s.x, s.y);
+    if (c && c.state === 'hidden') { c.state = 'open'; c.vis = true; eph.opened++; }
+  });
+  encyclopedia.add(eph.name);
+  const stolen = stealResources(5);
+  addLog(`💙 ${eph.discovered ? eph.name.toUpperCase() : 'СИНИЙ'} СБЕЖАЛ! –${stolen} ресурсов похищено!`, 'err');
+  SFX.warn();
+}
+
+function tickBlueEphemers() {
+  if (ROOM_CONFIGS[currentRoomIdx].isBoss) return;
+  S.ephemers.forEach(eph => {
+    if (eph.type !== 'blue' || eph.done || !eph.fearActive) return;
+    eph.fearTimer--;
+    if (eph.fearTimer <= 0) {
+      blueEscape(eph);
+    } else if (eph.fearTimer <= 3) {
+      const nm = eph.discovered ? eph.name : 'Синий эфемер';
+      addLog(`💙 ${nm} испуган! Сбежит через ${eph.fearTimer} ходов!`, 'warn');
+    }
+  });
+}
+
+// ─── PURPLE EPHEMER INVERSION ─────────────────────────────────────
+// Passive: while any purple ephemer is not yet done, empty cells drain -1э
+function tickPurpleInversion() {
+  S.invertActive = S.ephemers.some(e => e.type === 'purple' && !e.done);
+}
+
 function triggerEMI() {
   const p = S.player;
-
-  // 50/50: add or drain 3 energy
   const addEnergy3 = Math.random() < 0.5;
   let dmg = false;
   let msg;
@@ -469,8 +660,6 @@ function triggerEMI() {
     }
   }
   if (dmg) takeDamage(1);
-
-  // Block a random slot 1–3 (never slot 0 = Locator)
   S.emiBlockedSlot = 1 + Math.floor(Math.random() * 3);
   const slotNames = ['', 'Эхолуч', 'Слот 3', 'Слот 4'];
   addLog(msg, dmg ? 'err' : 'warn');
@@ -479,22 +668,23 @@ function triggerEMI() {
 }
 
 function triggerPulse() {
-  // Boss 2: check for EMI instead of hostile cells
-  const cfg = ROOM_CONFIGS[currentRoomIdx];
-  if (cfg.isBoss && cfg.bossIdx === 1) {
+  const cfg  = ROOM_CONFIGS[currentRoomIdx];
+  const boss = S.ephemers[0];
+  if (boss?.eyesNeutralized) return;
+
+  // EMI check for bosses with emiProbs config
+  if (cfg.emiProbs) {
     S.emiPulseCount++;
-    const prob = EMI_PROBS[Math.min(S.emiPulseCount - 1, EMI_PROBS.length - 1)];
+    const prob = cfg.emiProbs[Math.min(S.emiPulseCount - 1, cfg.emiProbs.length - 1)];
     if (Math.random() < prob) {
       triggerEMI();
       S.emiPulseCount = 0;
-      return; // EMI fires — no hostile cells this pulse
+      return;
     }
   }
 
-  const boss       = S.ephemers[0];
   const bossSegSet = new Set(boss.segs.map(s => `${s.x},${s.y}`));
 
-  // Exclusion zone: all existing hostile cells + their 8-neighbours
   const excludeSet = new Set();
   S.hostileCells.forEach(h => {
     for (let dy = -1; dy <= 1; dy++)
@@ -510,7 +700,8 @@ function triggerPulse() {
         candidates.push(c);
     }
 
-  const count = Math.min(2, candidates.length);
+  const maxCount = cfg.pulseHostileCount ?? 2;
+  const count = Math.min(maxCount, candidates.length);
   for (let i = 0; i < count; i++) {
     const idx    = Math.floor(Math.random() * candidates.length);
     const chosen = candidates.splice(idx, 1)[0];
@@ -521,7 +712,6 @@ function triggerPulse() {
       permanent:  !onBoss,
       turnsLeft:  onBoss ? HOSTILE_BOSS_SEG_TURNS : Infinity,
     });
-    // Expand exclusion so the second pick respects the first
     for (let dy = -1; dy <= 1; dy++)
       for (let dx = -1; dx <= 1; dx++)
         excludeSet.add(`${chosen.x+dx},${chosen.y+dy}`);
@@ -534,11 +724,22 @@ function triggerPulse() {
 function addOI(n) { S.player.res.oi += n; S.stats.oiEarned += n; SFX.oi(); }
 
 // ─── TOOL APPLICATION ─────────────────────────────────────────────
+function deepCloneS() {
+  const savedSet   = S.newEmptyCells;
+  const savedSnap  = S.warpSnapshot;
+  S.newEmptyCells  = [...savedSet];
+  S.warpSnapshot   = null;  // don't serialize snapshot recursively
+  const clone      = JSON.parse(JSON.stringify(S));
+  S.newEmptyCells  = savedSet;
+  S.warpSnapshot   = savedSnap;
+  clone.newEmptyCells = [];
+  return clone;
+}
+
 function applyTool(x, y) {
   if (S.phase !== 'playing') return;
   const c = cell(x, y);
   if (!c || c.state !== 'hidden') return;
-  // EMI block: Echobeamer blocked → refuse, turn NOT consumed
   if (S.tool === 'echobeamer' && S.emiBlockedSlot === 1) {
     addLog('🔒 ЭХОЛУЧ ЗАБЛОКИРОВАН ЭМИ! (этот ход)', 'warn');
     SFX.blocked();
@@ -546,15 +747,22 @@ function applyTool(x, y) {
     renderToolCards();
     return;
   }
+  // Save warp snapshot in boss rooms when warpEssence is available
+  const cfg = ROOM_CONFIGS[currentRoomIdx];
+  if (cfg.isBoss && S.player.res.warpEssence > 0) {
+    S.warpSnapshot = deepCloneS();
+  }
   S.newEmptyCells = new Set();
   const turnConsumed = S.tool === 'locator' ? doLocator(c) : doEchobeamer(c);
   if (turnConsumed !== false) {
     S.turn++;
     tickBossPulse();
-    S.emiBlockedSlot = null; // 1 turn has passed — unblock
+    tickRedAggression();
+    tickBlueEphemers();
+    tickPurpleInversion();
+    S.emiBlockedSlot = null;
   }
   checkWinLose();
-  // If phase just changed to terminal — start countdown, don't show overlay yet
   if (S.phase !== 'playing' && S.phase !== 'countdown') {
     startCountdown(S.phase);
   } else {
@@ -564,7 +772,6 @@ function applyTool(x, y) {
 
 // ── LOCATOR ──
 function doLocator(c) {
-  // BLOCKED on hostile cell — no turn spent
   if (c.isHostile) {
     addLog(`🚫 Враждебная клетка — Локатор заблокирован!`, 'warn');
     SFX.blocked();
@@ -572,7 +779,6 @@ function doLocator(c) {
     return false;
   }
 
-  // Adjacent to hostile → -1э (or -1 HP if empty)
   if (nb8(c.x, c.y).some(n => n.isHostile)) {
     if (S.player.battery > 0) {
       addEnergy(-1, false);
@@ -588,14 +794,16 @@ function doLocator(c) {
   if (c.eIdx !== -1) {
     const eph = S.ephemers[c.eIdx];
     eph.discovered = true;
+    eph.locatorHit = true;
     S.stats.dmgEphemeral++;
     takeDamage(1);
     c.state = 'open'; c.vis = true;
     eph.opened++;
+    const nd = eph.discovered ? eph.name : 'В ИЗУЧЕНИИ';
     if (eph.type === 'boss') {
       addLog(`⚠ Локатор на Босса! –1 HP. Сегмент потерян.`, 'err');
     } else if (eph.type === 'yellow') {
-      addLog(`💥 ВЗРЫВ! Жёлтый –1 HP. Взрыв 3×3 +2э`, 'err');
+      addLog(`Локатор на ${nd}. ${nd} атакует. Энергетический ВЗРЫВ 3×3! –1 HP. +2э.`, 'err');
       for (let dy = -1; dy <= 1; dy++)
         for (let dx = -1; dx <= 1; dx++) {
           if (!dx && !dy) continue;
@@ -603,8 +811,14 @@ function doLocator(c) {
           if (nc && nc.state === 'hidden') explodeReveal(nc);
         }
       addEnergy(2, true);
+    } else if (eph.type === 'red') {
+      eph.aggrActive = true;
+      addLog(`Локатор на ${nd}. ${nd} переходит в режим Агрессии.`, 'err');
+    } else if (eph.type === 'blue') {
+      if (!eph.fearActive) { eph.fearActive = true; eph.fearTimer = 5; }
+      addLog(`Локатор на ${nd}. ${nd} пугается! Сбежит через 5 ходов.`, 'err');
     } else {
-      addLog(`⚡ Штраф! Локатор на ${eph.name}. –1 HP.`, 'err');
+      addLog(`Локатор на ${nd}. ${nd} атакует. –1 HP.`, 'err');
     }
     checkEphDone(eph);
   } else {
@@ -612,14 +826,20 @@ function doLocator(c) {
       c.state = 'empty'; c.vis = true;
       S.newEmptyCells.add(`${c.x},${c.y}`);
       S.stats.emptyCells++;
-      addEnergy(1, true);
-      addLog(`📡 Пустая. +1э.`, 'ok');
-      SFX.battery();
+      if (S.invertActive) {
+        addEnergy(-1, false);
+        addLog(`📡 Пустая. ⚠ ИНВЕРСИЯ! –1э. (фиолетовый активен)`, 'warn');
+        SFX.purple();
+      } else {
+        addEnergy(1, true);
+        addLog(`📡 Пустая. +1э.`, 'ok');
+        SFX.battery();
+      }
     } else {
       c.state = 'number'; c.vis = true;
       S.stats.numberCells++;
       addLog(`📍 Число ${c.resNum}.`, 'info');
-      SFX.sonarPing(S.player.comboNums);   // ping BEFORE increment: 0→4 = lamp index
+      SFX.sonarPing(S.player.comboNums);
       S.player.comboNums++;
       if (S.player.comboNums >= 5) {
         S.player.comboNums = 0;
@@ -692,11 +912,21 @@ function doEchobeamer(c) {
 
   S.stats.segsScanned++;
   if (eph.type === 'boss') {
+    const cfg = ROOM_CONFIGS[currentRoomIdx];
     if (c.isEye) {
       eph.eyesScanned++;
-      // Speed up pulse by 2 turns (find eye → danger rises!)
-      S.pulseTimer = Math.max(1, S.pulseTimer - 2);
-      addLog(`👁 ГЛАЗ! Пульс ускорился! (${eph.eyesScanned}/${eph.totalEyes})`, 'trigger');
+      if (!eph.eyesNeutralized) {
+        if (cfg.bossIdx === 2) {
+          // Boss 3: eye scan triggers immediate pulse AND EMI
+          addLog(`👁 ГЛАЗ! НЕМЕДЛЕННЫЙ ПУЛЬС + ЭМИ! (${eph.eyesScanned}/${eph.totalEyes})`, 'trigger');
+          triggerPulse();
+          triggerEMI();
+        } else {
+          // Boss 1 & 2: speed up pulse timer
+          S.pulseTimer = Math.max(1, S.pulseTimer - 2);
+          addLog(`👁 ГЛАЗ! Пульс ускорился! (${eph.eyesScanned}/${eph.totalEyes})`, 'trigger');
+        }
+      }
       SFX.combo();
     } else {
       addEnergy(1, false);
@@ -709,18 +939,79 @@ function doEchobeamer(c) {
     addLog(`✅ Зелёный. +1 эссенция +1 ОИ. –${ECHO_COST}э.`, 'ok');
     SFX.green();
   } else if (eph.type === 'yellow') {
-    S.player.res.yellow++;  // сгусток выдаётся всегда
+    S.player.res.yellow++;
     const room = S.player.batMax - S.player.battery;
     if (room >= 4) {
       addEnergy(4, false);
-      addLog(`✅ Жёлтый. +4э +1 сгусток. Итого: ${S.player.battery}/${S.player.batMax}.`, 'ok');
+      addLog(`✅ Жёлтый. +4 энергии +1 сгусток. Батарея: ${S.player.battery}/${S.player.batMax}.`, 'ok');
     } else if (room > 0) {
       addEnergy(room, false);
-      addLog(`✅ Жёлтый. Батарея почти полна. +${room}э +1 сгусток.`, 'ok');
+      addLog(`✅ Жёлтый. Батарея почти полна. +${room} энергии +1 сгусток.`, 'ok');
     } else {
       addLog(`✅ Жёлтый. Батарея полна. +1 сгусток.`, 'ok');
     }
     SFX.yellow();
+  } else if (eph.type === 'red') {
+    eph.aggrActive = true;
+    if (Math.random() < 0.3) {
+      S.player.res.pearl++;
+      addLog(`✅ Красный. Агрессия! 30% → +1 жемчуг. –${ECHO_COST}э.`, 'ok');
+    } else {
+      addLog(`✅ Красный. Агрессия активирована. –${ECHO_COST}э.`, 'warn');
+    }
+    SFX.red();
+  } else if (eph.type === 'blue') {
+    const msgs = [];
+    if (Math.random() < 0.5) {
+      if (!eph.fearActive) { eph.fearActive = true; eph.fearTimer = 5; }
+      msgs.push('СТРАХ активирован!');
+    } else {
+      msgs.push('спокоен');
+    }
+    if (Math.random() < 0.2) {
+      addOI(10);
+      msgs.push('💎 Ксилла +10 ОИ');
+    }
+    const fearNow = msgs.includes('СТРАХ активирован!');
+    addLog(`✅ Синий. ${msgs.join(' ')} –${ECHO_COST}э.`, fearNow ? 'warn' : 'ok');
+    SFX.blue();
+  } else if (eph.type === 'purple') {
+    const roll = Math.random();
+    if (roll < 0.4) {
+      // 40%: случайный ресурс
+      const rnd = Math.random();
+      if (rnd < 0.33) {
+        S.player.res.green++;
+        addLog(`✅ Фиолетовый. +1 эссенция. –${ECHO_COST}э.`, 'ok'); SFX.green();
+      } else if (rnd < 0.66) {
+        S.player.res.yellow++;
+        addLog(`✅ Фиолетовый. +1 сгусток. –${ECHO_COST}э.`, 'ok'); SFX.yellow();
+      } else {
+        S.player.res.pearl++;
+        addLog(`✅ Фиолетовый. +1 жемчуг. –${ECHO_COST}э.`, 'ok'); SFX.red();
+      }
+    } else if (roll < 0.8) {
+      // 40%: ±1 HP
+      if (Math.random() < 0.5) {
+        if (S.player.hp < S.player.hpMax) {
+          S.player.hp++;
+          addLog(`✅ Фиолетовый. +1 HP! –${ECHO_COST}э.`, 'ok');
+        } else {
+          addLog(`✅ Фиолетовый. HP уже макс. –${ECHO_COST}э.`, 'ok');
+        }
+      } else {
+        takeDamage(1);
+        addLog(`✅ Фиолетовый. –1 HP! –${ECHO_COST}э.`, 'warn');
+      }
+      SFX.purple();
+    } else if (roll < 0.9) {
+      // 10%: Варп-эссенция
+      S.player.res.warpEssence++;
+      addLog(`✅ Фиолетовый. 💜 ВАРП-ЭССЕНЦИЯ! –${ECHO_COST}э.`, 'trigger'); SFX.purple();
+    } else {
+      // 10%: ничего особого
+      addLog(`✅ Фиолетовый. Без эффекта. –${ECHO_COST}э.`, 'ok'); SFX.purple();
+    }
   }
 
   if (c.isMembrane && eph.type !== 'boss') {
@@ -740,23 +1031,74 @@ function doEchobeamer(c) {
 // ─── EPHEMER COMPLETION ───────────────────────────────────────────
 function checkEphDone(eph) {
   if (eph.done) return;
+
   if (eph.type === 'boss') {
-    if (eph.eyesScanned >= eph.totalEyes) {
-      eph.done  = true;
-      S.phase   = 'boss-won';
-      addLog(`🏆 ВСЕ ГЛАЗА УНИЧТОЖЕНЫ! БОСС ПОВЕРЖЕН!`, 'trigger');
+    // Step 1: all eyes scanned → neutralize (stop effects, unlock exit)
+    if (!eph.eyesNeutralized && eph.eyesScanned >= eph.totalEyes) {
+      eph.eyesNeutralized = true;
+      S.emiBlockedSlot = null;
+      addLog(`💥 ВСЕ ГЛАЗА УНИЧТОЖЕНЫ! Новых угроз не будет.`, 'trigger');
+      addLog(`🚪 Выход разблокирован. Добей босса для полной победы!`, 'ok');
+      SFX.victory();
+    }
+    // Step 2: all segments revealed → final victory
+    if (eph.eyesNeutralized && eph.scanned + eph.opened >= eph.segs.length) {
+      eph.done = true;
+      S.phase = 'boss-won';
+      addLog(`🏆 БОСС УНИЧТОЖЕН! Полная победа!`, 'trigger');
       SFX.victory();
     }
     return;
   }
+
   if (eph.scanned + eph.opened >= eph.segs.length) {
     eph.done = true;
     const clean = eph.opened === 0;
     encyclopedia.add(eph.name);
-    S.player.res.money += clean ? 10 : 5;
-    addOI(clean ? 5 : 2);
-    SFX.money();
-    addLog(`🏁 ${eph.name} завершён. ${clean ? '✦ Чисто! +10м +5 ОИ' : `${eph.opened} потеряно. +5м +2 ОИ`}`, 'ok');
+
+    // Achievement: every 3 of same color or same shape → +3 ОИ
+    const colorRu = { green: 'зелёных', yellow: 'жёлтых', red: 'красных', blue: 'синих', purple: 'фиолетовых' };
+    const colCount = ++S.player.colorCounts[eph.type];
+    const shpCount = S.player.shapeCounts[eph.name] = (S.player.shapeCounts[eph.name] || 0) + 1;
+    if (colCount % 3 === 0) {
+      addOI(3);
+      addLog(`🏅 Исследовано ${colCount} ${colorRu[eph.type]} эфемеров → +3 ОИ!`, 'trigger');
+    }
+    if (shpCount % 3 === 0) {
+      addOI(3);
+      addLog(`🏅 ${shpCount} «${eph.name}» исследовано → +3 ОИ!`, 'trigger');
+    }
+
+    if (eph.type === 'green') {
+      S.player.res.money += clean ? 10 : 5;
+      addOI(clean ? 5 : 2);
+      SFX.money();
+      addLog(`🏁 ${eph.name} завершён. ${clean ? '✦ Чисто! +10м +5 ОИ' : `${eph.opened} потеряно. +5м +2 ОИ`}`, 'ok');
+    } else if (eph.type === 'yellow') {
+      S.player.res.money += clean ? 10 : 5;
+      addOI(clean ? 5 : 2);
+      SFX.money();
+      addLog(`🏁 ${eph.name} завершён. ${clean ? '✦ Чисто! +10м +5 ОИ' : `${eph.opened} потеряно. +5м +2 ОИ`}`, 'ok');
+    } else if (eph.type === 'red') {
+      S.player.res.money += clean ? 8 : 3;
+      addOI(clean ? 3 : 1);
+      SFX.money();
+      addLog(`🏁 ${eph.name} завершён. ${clean ? '🔴 Чисто! +8м +3 ОИ' : `+3м +1 ОИ`}`, 'ok');
+    } else if (eph.type === 'blue') {
+      if (!eph.escaped) {
+        S.player.res.money += clean ? 10 : 5;
+        addOI(clean ? 5 : 2);
+        SFX.money();
+        addLog(`🏁 ${eph.name} завершён. ${clean ? '💙 Чисто! +5 ОИ +10м' : `+2 ОИ +5м`}`, 'ok');
+      }
+    } else if (eph.type === 'purple') {
+      S.player.res.money += clean ? 12 : 4;
+      addOI(clean ? 6 : 2);
+      SFX.money();
+      addLog(`🏁 ${eph.name} завершён. ${clean ? '💜 Чисто! +6 ОИ +12м' : '+2 ОИ +4м'}`, 'ok');
+      // Inversion lifts after completion
+      tickPurpleInversion();
+    }
   }
 }
 
@@ -773,7 +1115,7 @@ function addEnergy(delta, overflow) {
     } else {
       S.player.battery = Math.min(S.player.batMax, next);
     }
-    if (S.player.battery === S.player.batMax && prev < S.player.batMax) {
+    if (S.player.battery === S.player.batMax && prev < S.player.batMax && S.tool === 'locator') {
       addLog(`❗ РИСК ПЕРЕГРУЗКИ — батарея полна! Переключитесь на Эхолуч!`, 'err');
       SFX.warn();
     }
@@ -800,19 +1142,22 @@ function checkWinLose() {
 
   const cfg = ROOM_CONFIGS[currentRoomIdx];
   if (cfg.isBoss) {
-    // Extra lose: no safe (non-hostile, non-adjacent-to-hostile) hidden cells
-    let hasPlayable = false;
-    outer:
-    for (let y = 0; y < S.gridH; y++)
-      for (let x = 0; x < S.gridW; x++) {
-        const c = S.grid[y][x];
-        if (c.state === 'hidden' && !c.isHostile && !nb8(x, y).some(n => n.isHostile)) {
-          hasPlayable = true; break outer;
+    const boss = S.ephemers[0];
+    // Extra lose only while pulse is active (eyes not neutralized)
+    if (!boss?.eyesNeutralized) {
+      let hasPlayable = false;
+      outer:
+      for (let y = 0; y < S.gridH; y++)
+        for (let x = 0; x < S.gridW; x++) {
+          const c = S.grid[y][x];
+          if (c.state === 'hidden' && !c.isHostile && !nb8(x, y).some(n => n.isHostile)) {
+            hasPlayable = true; break outer;
+          }
         }
+      if (!hasPlayable) {
+        S.phase = 'lost';
+        addLog(`💀 Пульс заполнил сектор! Нет безопасных клеток!`, 'err');
       }
-    if (!hasPlayable) {
-      S.phase = 'lost';
-      addLog(`💀 Пульс заполнил сектор! Нет безопасных клеток!`, 'err');
     }
   } else {
     if (S.ephemers.every(e => e.done)) {
@@ -823,7 +1168,9 @@ function checkWinLose() {
 }
 
 function exitRoom() {
-  if (ROOM_CONFIGS[currentRoomIdx].isBoss) return;  // blocked in boss rooms
+  const cfg = ROOM_CONFIGS[currentRoomIdx];
+  // In boss rooms: blocked until all eyes are neutralized
+  if (cfg.isBoss && !S.ephemers[0]?.eyesNeutralized) return;
   if (S.phase !== 'playing') return;
   S.phase = 'escaped';
   addLog(`🚪 Покинули комнату. HP ${S.player.hp}/${S.player.hpMax} сохранено.`, 'warn');
@@ -842,7 +1189,7 @@ function institutePremium(oi) {
 function startCountdown(finalPhase) {
   S.phase        = 'countdown';
   S.pendingPhase = finalPhase;
-  renderAll();  // render without overlay (countdown phase hides it)
+  renderAll();
 
   const steps = [
     { msg: 'ВАША ТЕКУЩАЯ РАБОТА ЗАКОНЧЕНА',       type: 'trigger' },
@@ -858,7 +1205,6 @@ function startCountdown(finalPhase) {
     setTimeout(() => { addLog(msg, type); renderLog(); }, i * 1000);
   });
 
-  // After countdown: add Institute premium, finalize
   setTimeout(() => {
     const { amount } = institutePremium(S.stats.oiEarned);
     if (amount > 0) S.player.res.money += amount;
@@ -937,6 +1283,10 @@ function shopAction(action) {
       if (res.yellow === 0) { msg = '❌ Нет жёлт. сгустка'; break; }
       { const ye = res.yellow * 15; res.money += ye; msg = `💰 Продано ${res.yellow} сгустков за ${ye}м.`; res.yellow = 0; }
       break;
+    case 'sell-pearl':
+      if (res.pearl === 0) { msg = '❌ Нет красного жемчуга'; break; }
+      { const pe = res.pearl * 20; res.money += pe; msg = `💰 Продано ${res.pearl} жемчуга за ${pe}м.`; res.pearl = 0; }
+      break;
     case 'buy-shield':
       if (RUN.inventory.length >= 2) { msg = '❌ Оба слота заняты'; break; }
       if (res.money < 40) { msg = '❌ Нужно 40 монет'; break; }
@@ -959,11 +1309,9 @@ function shopAction(action) {
 function onOverlayBtn() {
   const ph = S.phase;
   if (ph === 'lost') { newGameRun(); return; }
-  // Final boss defeated → new run
   if (ph === 'boss-won' && currentRoomIdx >= ROOM_CONFIGS.length - 1) {
     newGameRun(); return;
   }
-  // Continue: go to shop before next room
   if (currentRoomIdx < ROOM_CONFIGS.length - 1) {
     saveRoomToRun();
     document.getElementById('overlay').classList.add('hidden');
@@ -1008,19 +1356,28 @@ function renderResBar() {
   document.getElementById('r-pearl').textContent  = S.player.res.pearl;
   document.getElementById('r-money').textContent  = S.player.res.money;
   document.getElementById('turn-val').textContent = S.turn;
+  const warp = S.player.res.warpEssence || 0;
+  const warpEl = document.getElementById('res-warp');
+  if (warpEl) {
+    document.getElementById('r-warp').textContent = warp;
+    warpEl.classList.toggle('hidden', warp === 0);
+  }
 }
 
 function renderPhaseBar() {
-  // Steps: room1(0) shop1(1) room2(2) shop2(3) boss1(4) shop3(5) room3(6) shop4(7) boss2(8)
+  // Steps: K1(0) shop1(1) K2(2) shop2(3) B1(4) shop3(5) K3(6) shop4(7) B2(8) shop5(9) K4(10) shop6(11) B3(12)
   let active = currentRoomIdx * 2;
   const shopVisible = !document.getElementById('shop-overlay').classList.contains('hidden');
   if (shopVisible) active = shopNextRoomIdx * 2 - 1;
-  ['ps-room1','ps-shop1','ps-room2','ps-shop2','ps-boss1','ps-shop3','ps-room3','ps-shop4','ps-boss2']
-    .forEach((id, idx) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.className = 'phase-step ' + (idx < active ? 'done' : idx === active ? 'active' : 'upcoming');
-    });
+  [
+    'ps-room1','ps-shop1','ps-room2','ps-shop2','ps-boss1',
+    'ps-shop3','ps-room3','ps-shop4','ps-boss2',
+    'ps-shop5','ps-room4','ps-shop6','ps-boss3',
+  ].forEach((id, idx) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'phase-step ' + (idx < active ? 'done' : idx === active ? 'active' : 'upcoming');
+  });
 }
 
 function renderBattery() {
@@ -1052,7 +1409,7 @@ function renderGrid() {
       const el = document.createElement('div');
       el.className = 'cell';
       el.style.width = el.style.height = `${cs}px`;
-      el.style.fontSize = cs < 40 ? '11px' : '15px';
+      el.style.fontSize = cs < 40 ? (cs < 28 ? '9px' : '11px') : '15px';
       el.dataset.xy = `${x},${y}`;
 
       if (!c.vis) {
@@ -1060,7 +1417,7 @@ function renderGrid() {
         if (c.isHostile) {
           el.classList.add('cell-hostile');
           el.textContent = '☠';
-        } else if (cfg.isBoss && nb8(x, y).some(n => n.isHostile)) {
+        } else if (nb8(x, y).some(n => n.isHostile)) {
           el.classList.add('cell-hostile-neighbor');
         }
       } else {
@@ -1101,12 +1458,22 @@ function renderGrid() {
     }
   }
 
-  // Exit button: visible but DISABLED in boss rooms
+  // Exit button: disabled in boss rooms until eyes are neutralized
+  const boss = S.ephemers[0];
+  const bossLocked = cfg.isBoss && !boss?.eyesNeutralized;
   const exitBtn = document.getElementById('btn-exit-room');
   exitBtn.style.display  = 'inline-block';
-  exitBtn.disabled       = cfg.isBoss;
-  exitBtn.style.opacity  = cfg.isBoss ? '0.35' : '1';
-  exitBtn.style.cursor   = cfg.isBoss ? 'not-allowed' : 'pointer';
+  exitBtn.disabled       = bossLocked;
+  exitBtn.style.opacity  = bossLocked ? '0.35' : '1';
+  exitBtn.style.cursor   = bossLocked ? 'not-allowed' : 'pointer';
+
+  // Warp button: visible only in boss rooms when warpEssence > 0 and snapshot ready
+  const warpBtn = document.getElementById('btn-warp');
+  if (warpBtn) {
+    const showWarp = cfg.isBoss && S.player.res.warpEssence > 0 && S.warpSnapshot !== null;
+    warpBtn.classList.toggle('hidden', !showWarp);
+    if (showWarp) warpBtn.textContent = `💜 ВАРП (${S.player.res.warpEssence})`;
+  }
 }
 
 function renderToolCards() {
@@ -1117,7 +1484,6 @@ function renderToolCards() {
     'card-slot' + (S.tool === 'echobeamer' ? ' sel-echobeamer' : '') +
     (blocked === 1 ? ' slot-blocked' : '');
 
-  // Slots 2 & 3 — consumable inventory
   for (let i = 0; i < 2; i++) {
     const slotEl  = document.getElementById(`card-${i + 2}`);
     const item    = S.player.inventory[i];
@@ -1145,9 +1511,23 @@ function renderToolCards() {
   }
 }
 
+function useWarp() {
+  const snap = S.warpSnapshot;
+  if (!snap || S.player.res.warpEssence <= 0) return;
+  if (S.phase !== 'playing') return;
+  const newEssence = S.player.res.warpEssence - 1;
+  S = JSON.parse(JSON.stringify(snap));
+  S.newEmptyCells = new Set();
+  S.player.res.warpEssence = newEssence;
+  S.warpSnapshot = null;  // no double-warp
+  addLog(`💜 ВАРП! Последний ход отменён. Варп-эссенции: ${newEssence}`, 'trigger');
+  SFX.purple();
+  renderAll();
+}
+
 function useInventorySlot(slotIdx) {
   if (S.phase !== 'playing') return;
-  const cardIdx = slotIdx + 2; // inventory slot 0 = card-2, slot 1 = card-3
+  const cardIdx = slotIdx + 2;
   if (S.emiBlockedSlot === cardIdx) {
     addLog(`🔒 СЛОТ ${cardIdx + 1} ЗАБЛОКИРОВАН ЭМИ! (этот ход)`, 'warn');
     SFX.blocked();
@@ -1163,7 +1543,6 @@ function useInventorySlot(slotIdx) {
     SFX.battery();
     renderAll();
   }
-  // Shield: passive — absorbs next hit automatically, no click needed
 }
 
 function renderHP() {
@@ -1183,14 +1562,27 @@ function renderEphTracker() {
   S.ephemers.forEach(eph => {
     const card = document.createElement('div');
     if (eph.type === 'boss') {
-      const eyesLeft = eph.totalEyes - eph.eyesScanned;
+      const eyesLeft   = eph.totalEyes - eph.eyesScanned;
+      const totalSegs  = eph.segs.length;
+      const revealedSegs = eph.scanned + eph.opened;
       card.className = 'eph-card boss-eph' + (eph.done ? ' done-eph' : '');
+      let statusText, memLine;
+      if (eph.done) {
+        statusText = '✓ ПОВЕРЖЕН';
+        memLine = '★ ПОБЕДА!';
+      } else if (eph.eyesNeutralized) {
+        statusText = `Сегм: ${revealedSegs}/${totalSegs}`;
+        memLine = '◆ Добей — сканируй оставшиеся сегменты';
+      } else {
+        statusText = `Глаза: ${eph.eyesScanned}/${eph.totalEyes} — осталось ${eyesLeft}`;
+        memLine = '◆ Сканируй Глаза Эхолучом';
+      }
       card.innerHTML = `
         <div class="eph-icon boss-icon">⚡</div>
         <div class="eph-info">
           <div class="eph-name">${eph.name.toUpperCase()}</div>
-          <div class="eph-prog">Глаза: ${eph.eyesScanned}/${eph.totalEyes} — ${eph.done ? '✓ ПОВЕРЖЕН' : `осталось ${eyesLeft}`}</div>
-          <div class="eph-mem">${eph.done ? '★ ПОБЕДА!' : '◆ Сканируй Глаза Эхолучом'}</div>
+          <div class="eph-prog">${statusText}</div>
+          <div class="eph-mem">${memLine}</div>
         </div>`;
     } else {
       const total    = eph.segs.length;
@@ -1209,10 +1601,8 @@ function renderEphTracker() {
           </div>`;
       } else {
         card.className = `eph-card ${eph.type}-eph${eph.done ? ' done-eph' : ''}`;
-        const icon = eph.type === 'green' ? '◉' : '◈';
-        // Имя раскрывается только после завершения изучения
+        const icon = eph.type === 'green' ? '◉' : eph.type === 'yellow' ? '◈' : eph.type === 'red' ? '◇' : eph.type === 'purple' ? '◈' : '◆';
         const nameToShow = eph.done ? eph.name.toUpperCase() : 'В ИЗУЧЕНИИ';
-        // Кол-во сегментов: показываем точное число если эфемер в энциклопедии (этот или прошлый забег)
         const knownNow    = encyclopedia.has(eph.name);
         const knownBefore = encyclopediaAtRunStart.has(eph.name);
         const totalStr    = (knownNow || knownBefore) ? total : '?';
@@ -1220,14 +1610,25 @@ function renderEphTracker() {
           ? `${eph.scanned}/${totalStr} ✓`
           : `${revealed}/${knownBefore ? total : '?'} сегментов`;
         const memStr = eph.triggered ? '★ триггер!' : (memFound ? '◆ найдена' : '· не найдена');
+        const effectColors = { green: '#2ecc71', yellow: '#f39c12', red: '#e74c3c', blue: '#4ecdc4', purple: '#9b59b6' };
+        // Show Echobeamer effect only after first scan; show Locator effect only after Locator hit
+        // Exception: if known from a previous run, show everything
+        const knownPrev = encyclopediaAtRunStart.has(eph.name);
+        const showEcho  = knownPrev || eph.scanned > 0;
+        const showLoc   = knownPrev || eph.locatorHit;
+        let effectLine  = '';
+        if (showEcho && EPH_EFFECTS_ECHO[eph.type]) effectLine += EPH_EFFECTS_ECHO[eph.type];
+        if (showLoc  && EPH_EFFECTS_LOC[eph.type])  effectLine += (effectLine ? '. ' : '') + EPH_EFFECTS_LOC[eph.type];
         card.innerHTML = `
           <div class="eph-icon ${eph.type}-icon">${icon}</div>
           <div class="eph-info">
             <div class="eph-name">${nameToShow}</div>
             <div class="eph-prog">${prog}</div>
             <div class="eph-mem">${memStr}</div>
+            ${eph.type === 'purple' && !eph.done ? `<div class="eph-effect" style="color:#9b59b6">⚠ ИНВЕРСИЯ АКТИВНА</div>` : ''}
+            ${eph.type === 'blue' && eph.fearActive && !eph.done ? `<div class="eph-effect" style="color:#e74c3c">⏱ БЕГСТВО через ${eph.fearTimer} ходов</div>` : ''}
+            ${effectLine ? `<div class="eph-effect" style="color:${effectColors[eph.type]}">${effectLine}</div>` : ''}
           </div>`;
-        // Форма появляется сразу после завершения (encyclopedia.has), не только в следующем забеге
         if (knownNow || knownBefore) card.appendChild(buildMiniShape(eph));
         if (eph.done) card.addEventListener('click', () => showEncyclopedia(eph));
       }
@@ -1269,7 +1670,8 @@ function renderComboLamps() {
   el.innerHTML = '';
   for (let i = 0; i < 5; i++) {
     const d = document.createElement('div');
-    d.className = 'combo-lamp' + (i < S.player.comboNums ? ' lit' : '');
+    const lit = i < S.player.comboNums;
+    d.className = 'combo-lamp' + (lit ? ' lit' : '') + (S.invertActive ? ' invert' : '');
     el.appendChild(d);
   }
 }
@@ -1286,42 +1688,67 @@ function renderLog() {
 }
 
 function renderBossBar() {
-  const bar    = document.getElementById('boss-bar');
-  const cfg    = ROOM_CONFIGS[currentRoomIdx];
+  const bar = document.getElementById('boss-bar');
+  const cfg = ROOM_CONFIGS[currentRoomIdx];
   const isBoss = cfg?.isBoss;
   if (!isBoss || S.phase !== 'playing') { bar.classList.add('hidden'); return; }
   bar.classList.remove('hidden');
-  const boss = S.ephemers[0];
-  document.getElementById('boss-pulse-val').textContent  = S.pulseTimer;
-  document.getElementById('boss-eyes-val').textContent   = `${boss?.eyesScanned ?? 0}/${boss?.totalEyes ?? 2}`;
-  const pLabel = document.getElementById('boss-pulse-label');
-  pLabel.style.color = S.pulseTimer <= 2 ? '#e74c3c' : S.pulseTimer <= 3 ? '#f39c12' : '#4ecdc4';
-  document.getElementById('boss-hostile-val').textContent = S.hostileCells.filter(h => h.permanent).length +
-    ' / ' + S.hostileCells.length;
 
-  // EMI stats (Boss 2 only)
-  const emiStat = document.getElementById('boss-emi-stat');
-  if (emiStat) {
-    const isBoss2 = cfg.bossIdx === 1;
-    emiStat.style.display = isBoss2 ? 'flex' : 'none';
-    if (isBoss2) {
-      const nextProb = EMI_PROBS[Math.min(S.emiPulseCount, EMI_PROBS.length - 1)];
-      const emiVal   = document.getElementById('boss-emi-val');
-      emiVal.textContent  = Math.round(nextProb * 100) + '%';
-      emiVal.style.color  = nextProb >= 1.0 ? '#e74c3c' : nextProb >= 0.5 ? '#f39c12' : '#f0d060';
-      const blkEl = document.getElementById('boss-emi-blocked');
-      if (blkEl) {
-        const slotNames = ['', 'Эхолуч', 'Слот 3', 'Слот 4'];
-        blkEl.textContent = S.emiBlockedSlot ? `🔒 ${slotNames[S.emiBlockedSlot]}` : '';
-      }
-    }
+  const boss = S.ephemers[0];
+
+  // After eyes destroyed: show "finish boss" mode
+  if (boss?.eyesNeutralized) {
+    const totalSegs    = boss.segs.length;
+    const revealedSegs = boss.scanned + boss.opened;
+    bar.innerHTML = `
+      <div class="boss-stat"><span style="color:#f0d060">ДОБЕЙ БОССА</span></div>
+      <div class="boss-stat">
+        <span style="color:#9b59b6">СЕГМЕНТЫ: </span>
+        <span class="boss-val" style="color:#9b59b6">${revealedSegs}/${totalSegs}</span>
+      </div>
+      <div class="boss-stat"><span style="color:#2ecc71">🚪 ВЫХОД ОТКРЫТ</span></div>
+    `;
+    return;
   }
+
+  // Normal boss bar
+  const pColor = S.pulseTimer <= 2 ? '#e74c3c' : S.pulseTimer <= 3 ? '#f39c12' : '#4ecdc4';
+  let html = `
+    <div class="boss-stat">
+      <span style="color:${pColor}">ПУЛЬС: </span>
+      <span class="boss-val" style="color:${pColor}">${S.pulseTimer}</span>
+      <span class="boss-unit">ходов</span>
+    </div>
+    <div class="boss-stat">
+      <span style="color:#f0d060">ГЛАЗА: </span>
+      <span class="boss-val">${boss?.eyesScanned ?? 0}/${boss?.totalEyes ?? 0}</span>
+    </div>
+    <div class="boss-stat">
+      <span style="color:#e74c3c">ВРАЖДЕБНЫЕ: </span>
+      <span class="boss-val">${S.hostileCells.filter(h => h.permanent).length} / ${S.hostileCells.length}</span>
+    </div>
+  `;
+
+  if (cfg.emiProbs) {
+    const nextProb  = cfg.emiProbs[Math.min(S.emiPulseCount, cfg.emiProbs.length - 1)];
+    const emiColor  = nextProb >= 1.0 ? '#e74c3c' : nextProb >= 0.5 ? '#f39c12' : '#f0d060';
+    const slotNames = ['', 'Эхолуч', 'Слот 3', 'Слот 4'];
+    const blockedTxt = S.emiBlockedSlot ? `<span style="font-size:13px;color:#f39c12;margin-left:6px">🔒 ${slotNames[S.emiBlockedSlot]}</span>` : '';
+    html += `
+      <div class="boss-stat">
+        <span style="color:#f39c12">ЭМИ: </span>
+        <span class="boss-val" style="color:${emiColor}">${Math.round(nextProb * 100)}%</span>
+        ${blockedTxt}
+      </div>
+    `;
+  }
+
+  bar.innerHTML = html;
 }
 
 function renderOverlay() {
   const ov = document.getElementById('overlay');
   const ph = S.phase;
-  // Hide during countdown and normal play
   if (ph === 'playing' || ph === 'countdown') { ov.classList.add('hidden'); return; }
   ov.classList.remove('hidden');
   const p = S.player;
@@ -1335,7 +1762,7 @@ function renderOverlay() {
     won:        '🏆 КОМНАТА ОЧИЩЕНА',
     lost:       '💀 ЗАБЕГ ОКОНЧЕН',
     escaped:    '🚪 ВЫХОД ИЗ КОМНАТЫ',
-    'boss-won': isFinalBoss ? '🌟 ФИНАЛ! БОСС ПОВЕРЖЕН!' : '⚡ БОСС ПОВЕРЖЕН!',
+    'boss-won': isFinalBoss ? '🌟 ФИНАЛ! ВСЕ БОССЫ ПОВЕРЖЕНЫ!' : '⚡ БОСС ПОВЕРЖЕН!',
   };
   document.getElementById('overlay-title').textContent = titles[ph] || '';
 
@@ -1347,38 +1774,102 @@ function renderOverlay() {
     lost:       'Вы погибли. Слава храбрым исследователям Эфира.',
     escaped:    `HP ${p.hp}/${p.hpMax}. ${S.ephemers.filter(e=>e.done).length}/${total} эфемеров. Миссия завершена.`,
     'boss-won': isFinalBoss
-      ? `${bossName} уничтожен за ${S.turn} ходов! Вы прошли оба босса! Поздравляем!`
+      ? `${bossName} уничтожен! Все три босса повержены — забег завершён!`
       : `${bossName} повержен за ${S.turn} ходов! Поздравляем — миссия завершена!`,
   };
   document.getElementById('overlay-sub').textContent = subs[ph] || '';
 
-  // ── Detailed report ───────────────────────────────────────────
-  const premiumData = institutePremium(st.oiEarned);
   const rows = [];
-  if (ph !== 'lost') {
-    rows.push(['── РАПОРТ ──────────────────────', '']);
-    rows.push(['Пустых клеток:', st.emptyCells]);
-    rows.push(['Числовых клеток:', st.numberCells]);
-    rows.push(['Сегментов (Эхолуч):', st.segsScanned]);
+
+  // ── ФИНАЛЬНЫЙ ЭКРАН ПОБЕДЫ ──────────────────────────────────────
+  if (isFinalBoss && ph === 'boss-won') {
+    // Merge RUN.stats (prev rooms) + current boss room S.stats
+    const rs = S.stats.resStart;
+    const runSt  = RUN.stats;
+    const totalOI    = runSt.oiEarned    + st.oiEarned;
+    const totalTurns = runSt.totalTurns  + S.turn;
+    const totalDmgOv = runSt.dmgOverload + st.dmgOverload;
+    const totalDmgEph= runSt.dmgEphemeral+ st.dmgEphemeral;
+    // Ephemer totals (current boss room has no ephs)
+    const metTotal   = runSt.ephemersMet;
+    const cleanTotal = runSt.ephemersClean;
+    const lostTotal  = runSt.ephemersLost;
+    const escTotal   = runSt.ephemersEscaped;
+    const bossesKilled = runSt.bossesKilled + 1; // +1 for current
+    // Resources earned across all rooms
+    const earnG = runSt.resEarned.green  + Math.max(0, p.res.green  - rs.green);
+    const earnY = runSt.resEarned.yellow + Math.max(0, p.res.yellow - rs.yellow);
+    const earnP = runSt.resEarned.pearl  + Math.max(0, p.res.pearl  - rs.pearl);
+    const earnM = runSt.resEarned.money  + Math.max(0, p.res.money  - rs.money);
+    // Final score
+    const cleanRatio = metTotal > 0 ? cleanTotal / metTotal : 1;
+    const score = Math.round(totalOI * p.hp * (1 + cleanRatio));
+
+    rows.push(['── ИТОГОВЫЙ СЧЁТ ────────────────', '']);
+    rows.push([`<span style="color:#f0d060;font-size:1.2em">★ СЧЁТ:</span>`,
+               `<span style="color:#f0d060;font-size:1.2em">${score}</span>`]);
+    rows.push([`<small style="color:#3a6a8a">ОИ × HP × (1 + чистых/всего)</small>`, `<small style="color:#3a6a8a">${totalOI} × ${p.hp} × ${(1 + cleanRatio).toFixed(2)}</small>`]);
     rows.push(['']);
-    rows.push(['Объём исследований (ОИ):', st.oiEarned]);
-    rows.push(['Премия Института:', premiumData.amount > 0 ? `+${premiumData.amount} монет (${premiumData.label})` : 'нет']);
-    if (st.dmgOverload > 0 || st.dmgEphemeral > 0) {
+    rows.push(['── ПОЛНЫЙ ОТЧЁТ О ЗАБЕГЕ ────────', '']);
+    rows.push(['Боссов уничтожено:', `${bossesKilled}/3`]);
+    rows.push(['Всего ходов:', totalTurns]);
+    rows.push(['ОИ за забег:', totalOI]);
+    rows.push(['HP финальный:', `${p.hp}/${p.hpMax}`]);
+    rows.push(['']);
+    rows.push(['── ЭФЕМЕРЫ ──────────────────────', '']);
+    rows.push(['Встречено:', metTotal]);
+    rows.push(['Чисто (без потерь):', cleanTotal]);
+    if (lostTotal > 0)  rows.push(['Сегментов потеряно:', lostTotal]);
+    if (escTotal > 0)   rows.push(['Сбежало синих:', escTotal]);
+    rows.push(['']);
+    rows.push(['── ДОБЫТО ЗА ВЕСЬ ЗАБЕГ ─────────', '']);
+    rows.push([`<span style="color:#2ecc71">Зелёная эссенция:</span>`, earnG]);
+    rows.push([`<span style="color:#f39c12">Жёлтый сгусток:</span>`,   earnY]);
+    rows.push([`<span style="color:#e74c3c">Красный жемчуг:</span>`,   earnP]);
+    rows.push([`<span style="color:#f0d060">Монеты:</span>`,            earnM]);
+    if (totalDmgOv > 0 || totalDmgEph > 0) {
       rows.push(['']);
-      rows.push(['── Полученный ущерб ─────────────', '']);
-      if (st.dmgOverload  > 0) rows.push(['–1 HP × перегрузка:', st.dmgOverload]);
-      if (st.dmgEphemeral > 0) rows.push(['–1 HP × атака эфириала:', st.dmgEphemeral]);
+      rows.push(['── ПОЛУЧЕННЫЙ УЩЕРБ ─────────────', '']);
+      if (totalDmgOv  > 0) rows.push(['Перегрузок:', totalDmgOv]);
+      if (totalDmgEph > 0) rows.push(['Атак эфемеров:', totalDmgEph]);
     }
   } else {
-    rows.push(['ОИ:', st.oiEarned]);
-    rows.push(['Ходов сделано:', S.turn]);
-    if (st.dmgOverload  > 0) rows.push(['Перегрузок:', st.dmgOverload]);
-    if (st.dmgEphemeral > 0) rows.push(['Атак эфириала:', st.dmgEphemeral]);
+    // ── ОБЫЧНЫЙ ЭКРАН КОМНАТЫ / ПРОИГРЫША ──────────────────────────
+    const premiumData = institutePremium(st.oiEarned);
+    if (ph !== 'lost') {
+      rows.push(['── РАПОРТ ──────────────────────', '']);
+      rows.push(['Пустых клеток:', st.emptyCells]);
+      rows.push(['Числовых клеток:', st.numberCells]);
+      rows.push(['Сегментов (Эхолуч):', st.segsScanned]);
+      rows.push(['']);
+      rows.push(['Объём исследований (ОИ):', st.oiEarned]);
+      rows.push(['Премия Института:', premiumData.amount > 0 ? `+${premiumData.amount} монет (${premiumData.label})` : 'нет']);
+      if (st.dmgOverload > 0 || st.dmgEphemeral > 0) {
+        rows.push(['']);
+        rows.push(['── Полученный ущерб ─────────────', '']);
+        if (st.dmgOverload  > 0) rows.push(['–1 HP × перегрузка:', st.dmgOverload]);
+        if (st.dmgEphemeral > 0) rows.push(['–1 HP × атака эфириала:', st.dmgEphemeral]);
+      }
+    } else {
+      rows.push(['ОИ:', st.oiEarned]);
+      rows.push(['Ходов сделано:', S.turn]);
+      if (st.dmgOverload  > 0) rows.push(['Перегрузок:', st.dmgOverload]);
+      if (st.dmgEphemeral > 0) rows.push(['Атак эфириала:', st.dmgEphemeral]);
+    }
+    const rs = S.stats.resStart;
+    const earned = {
+      green:  Math.max(0, p.res.green  - rs.green),
+      yellow: Math.max(0, p.res.yellow - rs.yellow),
+      pearl:  Math.max(0, p.res.pearl  - rs.pearl),
+      money:  Math.max(0, p.res.money  - rs.money),
+    };
+    rows.push(['']);
+    rows.push(['── Добыто в этой комнате ────────', '']);
+    rows.push([`<span style="color:#2ecc71">Зелёная эссенция:</span>`, earned.green]);
+    rows.push([`<span style="color:#f39c12">Жёлтый сгусток:</span>`,   earned.yellow]);
+    rows.push([`<span style="color:#e74c3c">Красный жемчуг:</span>`,   earned.pearl]);
+    rows.push([`<span style="color:#f0d060">Монеты:</span>`,            earned.money]);
   }
-  rows.push(['']);
-  rows.push(['Эссенция:', p.res.green]);
-  rows.push(['Сгустки:', p.res.yellow]);
-  rows.push(['Монеты:', p.res.money]);
 
   const statsEl = document.getElementById('overlay-stats');
   statsEl.innerHTML = rows.map(r => {
@@ -1419,7 +1910,6 @@ function renderShopOverlay() {
   document.getElementById('s-batmax').textContent = RUN.batMax;
   document.getElementById('s-shield').textContent = RUN.inventory.map(i => i.type === 'shield' ? '🛡' : '⚡').join(' ');
 
-  // Update upgrade cost labels
   const batIdx  = RUN.batUpgrades;
   const batCostEl = document.getElementById('bat-up-cost');
   if (batCostEl) batCostEl.textContent =
@@ -1445,14 +1935,16 @@ function renderShopOverlay() {
 function showEncyclopedia(eph) {
   const box   = document.getElementById('ency-body');
   const title = document.getElementById('ency-title');
-  title.style.color = eph.type === 'green' ? '#2ecc71' : '#f39c12';
+  const typeColors = { green: '#2ecc71', yellow: '#f39c12', red: '#e74c3c', blue: '#4ecdc4', purple: '#9b59b6' };
+  title.style.color = typeColors[eph.type] ?? '#4ecdc4';
   title.textContent = eph.name.toUpperCase();
   const total    = eph.segs.length;
   const revealed = eph.scanned + eph.opened;
   const memFound = eph.segs.some(s => { const c = cell(s.x, s.y); return s.isMembrane && c && c.vis; });
   const known    = encyclopedia.has(eph.name) || encyclopediaAtRunStart.has(eph.name);
+  const typeNames = { green: 'Зелёный', yellow: 'Жёлтый', red: 'Красный', blue: 'Синий', purple: 'Фиолетовый' };
   const rows = [
-    ['Тип',            eph.type === 'green' ? 'Зелёный' : 'Жёлтый'],
+    ['Тип',            typeNames[eph.type] ?? eph.type],
     ['Сегментов',      known ? `${total}` : '?'],
     ['Просканировано', `${eph.scanned}/${known ? total : '?'}`],
     ['Потеряно',       `${eph.opened}`],
@@ -1482,6 +1974,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('btn-overlay-action').addEventListener('click', onOverlayBtn);
   document.getElementById('btn-exit-room').addEventListener('click', exitRoom);
+  document.getElementById('btn-warp').addEventListener('click', useWarp);
   document.getElementById('btn-shop-continue').addEventListener('click', () => {
     startRoom(shopNextRoomIdx);
   });
