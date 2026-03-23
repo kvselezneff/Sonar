@@ -438,6 +438,7 @@ function startRoom(roomIdx) {
   // Full battery warning at room start
   if (S.player.battery >= S.player.batMax) {
     addLog(`⚠ Батарея полна — Эхолучи недоступны, пока не потратишь энергию!`, 'warn');
+    SFX.warn();
   }
   calcResonance();
   tickPurpleInversion();  // set invertActive correctly from turn 0
