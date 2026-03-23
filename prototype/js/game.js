@@ -2019,7 +2019,7 @@ function renderOverlay() {
         rows.push(['']);
         rows.push(['── Полученный ущерб ─────────────', '']);
         if (st.dmgOverload  > 0) rows.push(['–1 HP × перегрузка:', st.dmgOverload]);
-        if (st.dmgEphemeral > 0) rows.push(['–1 HP × атака эфириала:', st.dmgEphemeral]);
+        if (st.dmgEphemeral > 0) rows.push([`<span style="color:#e74c3c;font-weight:bold">–1 HP × атака эфириала:</span>`, `<span style="color:#e74c3c;font-weight:bold">${st.dmgEphemeral}</span>`]);
       }
     } else {
       rows.push(['ОИ:', st.oiEarned]);
