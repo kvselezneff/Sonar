@@ -47,10 +47,13 @@ function assignColorMembranes() {
 // ─── EQUIPMENT DATABASE ───────────────────────────────────────────
 const EQUIPMENT_DB = {
   hospital: {
-    standard: [],
-    locked: [
-      { id: 'H-01', name: 'Гарпун',         type: 'tool',      price: 80,  desc: 'Скан (5э). <3 сегм. → авто-засчёт. Квест.' },
-      { id: 'H-03', name: 'Анестезия',      type: 'consumable',price: 60,  desc: 'Заморозить таймеры 1 эфемера на 5 ходов' },
+    // Always visible, no КЖ required
+    standard: [
+      { id: 'H-03', name: 'Анестезия',      type: 'consumable',price: 60,  desc: 'Все таймеры эфемеров +5 ходов' },
+    ],
+    // Unlocked one by one for КЖ (random order)
+    pool: [
+      { id: 'H-01', name: 'Гарпун',         type: 'tool',      price: 80,  desc: 'Скан (5э). <3 сегм. → авто-засчёт.' },
       { id: 'H-04', name: 'Сканер жизни',   type: 'tool',      price: 70,  desc: 'Кол-во нераскрытых сегментов (1э)' },
       { id: 'H-05', name: 'Стимулятор',     type: 'passive',   price: 90,  desc: 'При HP=1 → авто +2 HP. Одноразовый.' },
       { id: 'H-06', name: 'Биоэкстрактор',  type: 'consumable',price: 75,  desc: 'Гарантирует редкий ресурс следующего эфемера' },
@@ -60,7 +63,7 @@ const EQUIPMENT_DB = {
     standard: [
       { id: 'I-05', name: 'Архивная метка', type: 'consumable',price: 50,  desc: '+3 строки Энц. для следующего эфемера' },
     ],
-    locked: [
+    pool: [
       { id: 'I-01', name: 'Датчик слежения',type: 'passive',   price: 65,  desc: '+1 ОИ каждые 5 ходов. Побег → +5 ОИ.' },
       { id: 'I-02', name: 'Спектроскоп',    type: 'tool',      price: 70,  desc: 'Тип мембраны без скана (1э)' },
       { id: 'I-03', name: 'Анализатор',     type: 'passive',   price: 50,  desc: 'После скана: след. сегмент — мембрана?' },
@@ -72,7 +75,7 @@ const EQUIPMENT_DB = {
     standard: [
       { id: 'BM-04', name: 'Инсайдер',      type: 'consumable',price: 35,  desc: 'Цвета и кол-во эфемеров следующей комнаты' },
     ],
-    locked: [
+    pool: [
       { id: 'BM-01', name: 'Двойная ставка',type: 'consumable',price: 55,  desc: 'Следующий ресурс ×2, след. штраф ×2 (–2 HP)' },
       { id: 'BM-02', name: 'Контрабандный скан',type:'tool',   price: 75,  desc: 'Скан (3э), ресурс без цветовых эффектов' },
       { id: 'BM-03', name: 'Детонатор',     type: 'tool',      price: 50,  desc: 'Взрыв жёлтого 3×3+2э без штрафа (2э)' },
@@ -343,15 +346,6 @@ const SFX = {
 const encyclopedia = new Set();
 let encyclopediaAtRunStart = new Set();
 
-// Equipment unlock: tracks total КЖ (red pearls) sold across all runs
-let totalPearlsSold = 0;
-// How many items per org unlock at each pearl threshold
-const EQUIP_UNLOCK_THRESHOLDS = [1, 3, 5, 7, 12]; // unlock 1st..5th item
-function unlockedEquipCount() {
-  let n = 0;
-  for (const t of EQUIP_UNLOCK_THRESHOLDS) { if (totalPearlsSold >= t) n++; else break; }
-  return n;
-}
 
 // Type labels for display
 const EQUIP_TYPE_LABEL = { tool: '🔧 инструмент', consumable: '💊 расходник', passive: '📡 пассив' };
@@ -381,6 +375,7 @@ function initRun() {
     fakeTail:           false,
     doubleBet:          false,
     archiveMark:        false,
+    equipRevealed:      { hospital: [], institute: [], market: [] },
     colorMembranes:     assignColorMembranes(),
     colorCounts: { green: 0, yellow: 0, red: 0, blue: 0, purple: 0 },
     shapeCounts: {},
@@ -432,6 +427,7 @@ function startRoom(roomIdx) {
       fakeTail:           RUN.fakeTail,
       doubleBet:          RUN.doubleBet,
       archiveMark:        RUN.archiveMark,
+      equipRevealed:      JSON.parse(JSON.stringify(RUN.equipRevealed)),
       colorCounts: { ...RUN.colorCounts },
       shapeCounts: { ...RUN.shapeCounts },
     },
@@ -502,6 +498,7 @@ function saveRoomToRun() {
   RUN.fakeTail           = S.player.fakeTail;
   RUN.doubleBet          = S.player.doubleBet;
   RUN.archiveMark        = S.player.archiveMark;
+  RUN.equipRevealed      = JSON.parse(JSON.stringify(S.player.equipRevealed));
   RUN.colorCounts = { ...S.player.colorCounts };
   RUN.shapeCounts = { ...S.player.shapeCounts };
 
@@ -1642,13 +1639,9 @@ function shopAction(action) {
     case 'sell-pearl': {
       if (res.pearl === 0) { msg = '❌ Нет красного жемчуга'; break; }
       const pe = res.pearl * 20;
-      totalPearlsSold += res.pearl;
-      const prevUnlock = unlockedEquipCount();
       res.money += pe;
-      msg = `💰 Продано ${res.pearl} жемчуга за ${pe}м. Всего КЖ: ${totalPearlsSold}`;
+      msg = `💰 Продано ${res.pearl} жемчуга за ${pe}м`;
       res.pearl = 0;
-      const newUnlock = unlockedEquipCount();
-      if (newUnlock > prevUnlock) msg += ` — разблокировано ${newUnlock - prevUnlock} ед. оборудования!`;
       break;
     }
     case 'buy-shield':
@@ -2381,55 +2374,83 @@ function switchOrgTab(orgKey, tab, btn) {
   if (tab === 'equipment') renderEquipPanel(orgKey, equip);
 }
 
+// Unlock cost: 1, 2, 3, 5, 8 КЖ (growing)
+const EQUIP_REVEAL_COSTS = [1, 2, 3, 5, 8];
+function equipRevealCost(orgKey) {
+  const n = (RUN.equipRevealed[orgKey] || []).length;
+  return EQUIP_REVEAL_COSTS[n] ?? 99;
+}
+
 function renderEquipPanel(orgKey, container) {
-  const db  = EQUIPMENT_DB[orgKey];
-  const unlocked = unlockedEquipCount();
-  const nextThresh = EQUIP_UNLOCK_THRESHOLDS[unlocked] ?? null;
+  const db       = EQUIPMENT_DB[orgKey];
+  const revealed = RUN.equipRevealed[orgKey] || [];
+  const pool     = db.pool || [];
+  const hasMore  = revealed.length < pool.length;
+  const cost     = equipRevealCost(orgKey);
+  const canReveal = hasMore && RUN.res.pearl >= cost;
   let html = '';
 
-  // Standard items for this org (e.g. I-05, BM-04)
+  // Standard items — always visible
   (db.standard || []).forEach(item => {
-    const canBuy = RUN.inventory.length < RUN.inventorySlots && RUN.res.money >= item.price;
-    html += `<div class="shop-item equip-item">
-      <span class="item-badge equip-badge">${EQUIP_TYPE_LABEL[item.type]?.charAt(0) ?? '◈'}</span>
-      <div class="item-name">${item.id} ${item.name}</div>
-      <div class="item-desc">${item.desc}</div>
-      <div class="item-cost">${item.price} 💰</div>
-      <button class="btn-equip-buy" onclick="shopEquipBuy('${orgKey}','${item.id}')" ${canBuy?'':'disabled'}>Купить</button>
-    </div>`;
+    html += renderEquipItem(orgKey, item);
   });
 
-  // Locked items
-  db.locked.forEach((item, idx) => {
-    const isUnlocked = idx < unlocked;
-    const canBuy = isUnlocked && RUN.inventory.length < RUN.inventorySlots && RUN.res.money >= item.price;
-    if (isUnlocked) {
-      html += `<div class="shop-item equip-item">
-        <span class="item-badge equip-type">${EQUIP_TYPE_LABEL[item.type] ?? item.type}</span>
-        <div class="item-name">${item.id} ${item.name}</div>
-        <div class="item-desc">${item.desc}</div>
-        <div class="item-cost">${item.price} 💰</div>
-        <button class="btn-equip-buy" onclick="shopEquipBuy('${orgKey}','${item.id}')" ${canBuy?'':'disabled'}>Купить</button>
-      </div>`;
-    } else {
-      const need = EQUIP_UNLOCK_THRESHOLDS[idx] ?? '?';
-      html += `<div class="shop-item equip-item equip-locked">
-        <span class="item-badge">🔒</span>
-        <div class="item-name">${item.id} ${item.name}</div>
-        <div class="item-desc">${item.desc}</div>
-        <div class="item-cost" style="color:var(--red)">Продай ${need} КЖ (сейчас: ${totalPearlsSold})</div>
-      </div>`;
+  // Revealed pool items
+  revealed.forEach(id => {
+    const item = pool.find(i => i.id === id);
+    if (item) html += renderEquipItem(orgKey, item);
+  });
+
+  // Unlock button — always at bottom
+  if (hasMore) {
+    html += `<button class="btn-equip-reveal ${canReveal ? '' : 'disabled'}"
+      onclick="shopEquipReveal('${orgKey}')"
+      ${canReveal ? '' : 'disabled'}>
+      🔍 Открыть новое оборудование — ${cost} <span style="color:#e74c3c">🔴</span>
+    </button>`;
+    if (!canReveal) {
+      html += `<div class="equip-unlock-hint">Нужно ${cost} 🔴 (сейчас: ${RUN.res.pearl})</div>`;
     }
-  });
+  } else {
+    html += `<div class="equip-unlock-hint">✓ Всё оборудование раскрыто</div>`;
+  }
 
-  if (nextThresh !== null)
-    html += `<div class="equip-unlock-hint">До следующего разблокирования: ${nextThresh - totalPearlsSold} КЖ</div>`;
   container.innerHTML = html;
+}
+
+function renderEquipItem(orgKey, item) {
+  const canBuy = RUN.inventory.length < RUN.inventorySlots && RUN.res.money >= item.price;
+  const typeLabel = EQUIP_TYPE_LABEL[item.type] ?? item.type;
+  return `<div class="shop-item equip-item">
+    <div class="equip-type">${typeLabel}</div>
+    <div class="item-name">${item.id} — ${item.name}</div>
+    <div class="item-desc">${item.desc}</div>
+    <div class="item-cost">${item.price} 💰</div>
+    <button class="btn-equip-buy" onclick="shopEquipBuy('${orgKey}','${item.id}')" ${canBuy?'':'disabled'}>Купить</button>
+  </div>`;
+}
+
+function shopEquipReveal(orgKey) {
+  const db       = EQUIPMENT_DB[orgKey];
+  const pool     = db.pool || [];
+  const revealed = RUN.equipRevealed[orgKey] || [];
+  const cost     = equipRevealCost(orgKey);
+  if (RUN.res.pearl < cost) { shopMsg = `❌ Нужно ${cost} 🔴`; renderShopOverlay(); return; }
+  const unrevealed = pool.filter(i => !revealed.includes(i.id));
+  if (!unrevealed.length) { shopMsg = '✓ Всё раскрыто'; renderShopOverlay(); return; }
+  const item = unrevealed[Math.floor(Math.random() * unrevealed.length)];
+  RUN.res.pearl -= cost;
+  RUN.equipRevealed[orgKey].push(item.id);
+  shopMsg = `🔓 Раскрыто: ${item.name}!`;
+  renderShopOverlay();
+  // Re-render the equipment panel
+  const equip = document.getElementById(`${orgKey}-equipment`);
+  if (equip && !equip.classList.contains('hidden')) renderEquipPanel(orgKey, equip);
 }
 
 function shopEquipBuy(orgKey, itemId) {
   const db  = EQUIPMENT_DB[orgKey];
-  const item = [...(db.standard || []), ...db.locked].find(i => i.id === itemId);
+  const item = [...(db.standard || []), ...(db.pool || [])].find(i => i.id === itemId);
   if (!item) return;
   if (RUN.inventory.length >= RUN.inventorySlots) { shopMsg = '❌ Нет свободных слотов'; renderShopOverlay(); return; }
   if (RUN.res.money < item.price) { shopMsg = `❌ Нужно ${item.price} монет`; renderShopOverlay(); return; }

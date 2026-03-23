@@ -541,6 +541,15 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
 .btn-equip-buy:hover:not(:disabled) { background: rgba(155,89,182,.4); }
 .btn-equip-buy:disabled { opacity: .35; cursor: default; }
 
+.btn-equip-reveal {
+  width: 100%; margin-top: 10px; padding: 8px 12px;
+  background: rgba(231,76,60,.12); border: 1px dashed rgba(231,76,60,.5);
+  color: #e7a0a0; font-family: inherit; font-size: 12px; letter-spacing: .5px;
+  border-radius: 4px; cursor: pointer; transition: all .15s;
+}
+.btn-equip-reveal:hover:not(:disabled) { background: rgba(231,76,60,.25); border-color: #e74c3c; color: #ffb0b0; }
+.btn-equip-reveal.disabled, .btn-equip-reveal:disabled { opacity: .4; cursor: default; }
+
 .shop-item {
   background: rgba(255,255,255,.02);
   border: 1px solid var(--border);
