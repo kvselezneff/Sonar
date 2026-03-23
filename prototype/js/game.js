@@ -107,15 +107,16 @@ const PURPLE_SHAPES = [
 ];
 
 // ─── ROOM CONFIGS ─────────────────────────────────────────────────
+// Structure: K1 K2 → B1 → K3 K4 → B2 → K5 K6 → B3 (2 rooms before each boss)
 const ROOM_CONFIGS = [
-  {
+  {  // [0]
     label: 'Комната 1', gridW: 10, gridH: 10, cellSize: 46, isBoss: false, bossIdx: null, pulseInterval: 5,
     ephConfig: [
       { type: 'green',  shapes: GREEN_SHAPES,  count: 2 },
       { type: 'yellow', shapes: YELLOW_SHAPES, count: 1 },
     ],
   },
-  {
+  {  // [1]
     label: 'Комната 2', gridW: 10, gridH: 10, cellSize: 46, isBoss: false, bossIdx: null, pulseInterval: 5,
     ephConfig: [
       { type: 'green',  shapes: GREEN_SHAPES,  count: 3 },
@@ -123,11 +124,11 @@ const ROOM_CONFIGS = [
       { type: 'red',    shapes: RED_SHAPES,    count: 1 },
     ],
   },
-  {
+  {  // [2]
     label: '⚡ БОСС 1', gridW: 12, gridH: 12, cellSize: 38, isBoss: true, bossIdx: 0, pulseInterval: 5,
     pulseHostileCount: 2, ephConfig: null,
   },
-  {
+  {  // [3] — first room after Boss 1
     label: 'Комната 3', gridW: 10, gridH: 10, cellSize: 46, isBoss: false, bossIdx: null, pulseInterval: 5,
     ephConfig: [
       { type: 'green',  shapes: GREEN_SHAPES,  count: 3 },
@@ -137,11 +138,7 @@ const ROOM_CONFIGS = [
       { type: 'purple', shapes: PURPLE_SHAPES, count: 1 },
     ],
   },
-  {
-    label: '⚡ БОСС 2', gridW: 14, gridH: 14, cellSize: 32, isBoss: true, bossIdx: 1, pulseInterval: 3,
-    pulseHostileCount: 2, emiProbs: [0.10, 0.30, 0.50, 1.00], ephConfig: null,
-  },
-  {
+  {  // [4] — second room before Boss 2 (NEW)
     label: 'Комната 4', gridW: 10, gridH: 10, cellSize: 46, isBoss: false, bossIdx: null, pulseInterval: 5,
     ephConfig: [
       { type: 'green',  shapes: GREEN_SHAPES,  count: 2 },
@@ -151,7 +148,31 @@ const ROOM_CONFIGS = [
       { type: 'purple', shapes: PURPLE_SHAPES, count: 1 },
     ],
   },
-  {
+  {  // [5]
+    label: '⚡ БОСС 2', gridW: 14, gridH: 14, cellSize: 32, isBoss: true, bossIdx: 1, pulseInterval: 3,
+    pulseHostileCount: 2, emiProbs: [0.10, 0.30, 0.50, 1.00], ephConfig: null,
+  },
+  {  // [6] — first room after Boss 2
+    label: 'Комната 5', gridW: 10, gridH: 10, cellSize: 46, isBoss: false, bossIdx: null, pulseInterval: 5,
+    ephConfig: [
+      { type: 'green',  shapes: GREEN_SHAPES,  count: 2 },
+      { type: 'yellow', shapes: YELLOW_SHAPES, count: 2 },
+      { type: 'red',    shapes: RED_SHAPES,    count: 2 },
+      { type: 'blue',   shapes: BLUE_SHAPES,   count: 1 },
+      { type: 'purple', shapes: PURPLE_SHAPES, count: 1 },
+    ],
+  },
+  {  // [7] — second room before Boss 3 (NEW)
+    label: 'Комната 6', gridW: 10, gridH: 10, cellSize: 46, isBoss: false, bossIdx: null, pulseInterval: 5,
+    ephConfig: [
+      { type: 'green',  shapes: GREEN_SHAPES,  count: 2 },
+      { type: 'yellow', shapes: YELLOW_SHAPES, count: 2 },
+      { type: 'red',    shapes: RED_SHAPES,    count: 2 },
+      { type: 'blue',   shapes: BLUE_SHAPES,   count: 2 },
+      { type: 'purple', shapes: PURPLE_SHAPES, count: 2 },
+    ],
+  },
+  {  // [8]
     label: '⚡ БОСС 3', gridW: 16, gridH: 16, cellSize: 24, isBoss: true, bossIdx: 2, pulseInterval: 2,
     pulseHostileCount: 3, emiProbs: [0.20, 0.50, 0.80, 1.00], ephConfig: null,
   },
@@ -267,7 +288,8 @@ function initRun() {
     battery:     BAT_START,
     comboNums:   0,
     res:         { green: 0, yellow: 0, pearl: 0, money: 0, oi: 0, warpEssence: 0 },
-    inventory:   [],
+    inventory:      [],
+    inventorySlots: 2,
     colorCounts: { green: 0, yellow: 0, red: 0, blue: 0, purple: 0 },
     shapeCounts: {},
     stats: {
@@ -309,7 +331,8 @@ function startRoom(roomIdx) {
       batUpgrades: RUN.batUpgrades,
       res:         { ...RUN.res },
       comboNums:   RUN.comboNums,
-      inventory:   [...RUN.inventory],
+      inventory:      [...RUN.inventory],
+      inventorySlots: RUN.inventorySlots,
       colorCounts: { ...RUN.colorCounts },
       shapeCounts: { ...RUN.shapeCounts },
     },
@@ -357,7 +380,8 @@ function saveRoomToRun() {
   RUN.batUpgrades = S.player.batUpgrades;
   RUN.comboNums   = S.player.comboNums;
   RUN.res         = { ...S.player.res };
-  RUN.inventory   = [...S.player.inventory];
+  RUN.inventory      = [...S.player.inventory];
+  RUN.inventorySlots = S.player.inventorySlots;
   RUN.colorCounts = { ...S.player.colorCounts };
   RUN.shapeCounts = { ...S.player.shapeCounts };
 
@@ -566,13 +590,16 @@ function tickBossPulse() {
 
 // ─── RED EPHEMER AGGRESSION ───────────────────────────────────────
 // Per-ephemer: every RED_AGGR_INTERVAL turns while aggrActive → –1 HP directly
+// Глушитель агрессии (aggr-filter) в инвентаре удваивает интервал.
 function tickRedAggression() {
   if (ROOM_CONFIGS[currentRoomIdx].isBoss) return;
+  const hasFilter = S.player.inventory.some(i => i && i.type === 'aggr-filter');
+  const interval  = hasFilter ? RED_AGGR_INTERVAL * 2 : RED_AGGR_INTERVAL;
   S.ephemers.forEach(eph => {
     if (eph.type !== 'red' || eph.done || !eph.aggrActive) return;
     eph.aggrTimer--;
     if (eph.aggrTimer <= 0) {
-      eph.aggrTimer = RED_AGGR_INTERVAL;
+      eph.aggrTimer = interval;
       const nm = eph.discovered ? eph.name : 'Красный эфемер';
       addLog(`🔴 ${nm} АТАКУЕТ! –1 HP!`, 'err');
       takeDamage(1);
@@ -1288,17 +1315,30 @@ function shopAction(action) {
       { const pe = res.pearl * 20; res.money += pe; msg = `💰 Продано ${res.pearl} жемчуга за ${pe}м.`; res.pearl = 0; }
       break;
     case 'buy-shield':
-      if (RUN.inventory.length >= 2) { msg = '❌ Оба слота заняты'; break; }
+      if (RUN.inventory.length >= RUN.inventorySlots) { msg = `❌ Нет свободных слотов (${RUN.inventorySlots})`; break; }
       if (res.money < 40) { msg = '❌ Нужно 40 монет'; break; }
       res.money -= 40; RUN.inventory.push({ type: 'shield' });
       msg = `🛡 Щит помещён в слот ${RUN.inventory.length}.`;
       break;
     case 'buy-powerbank':
-      if (RUN.inventory.length >= 2) { msg = '❌ Оба слота заняты'; break; }
+      if (RUN.inventory.length >= RUN.inventorySlots) { msg = `❌ Нет свободных слотов (${RUN.inventorySlots})`; break; }
       if (res.money < 50) { msg = '❌ Нужно 50 монет'; break; }
       res.money -= 50; RUN.inventory.push({ type: 'powerbank' });
       msg = `⚡ Повербанк помещён в слот ${RUN.inventory.length}.`;
       break;
+    case 'buy-aggr-filter':
+      if (RUN.inventory.length >= RUN.inventorySlots) { msg = `❌ Нет свободных слотов (${RUN.inventorySlots})`; break; }
+      if (res.money < 60) { msg = '❌ Нужно 60 монет'; break; }
+      res.money -= 60; RUN.inventory.push({ type: 'aggr-filter' });
+      msg = `🔕 Глушитель в слот ${RUN.inventory.length}. Интервал атак красных ×2.`;
+      break;
+    case 'buy-slot': {
+      if (RUN.inventorySlots >= 4) { msg = '❌ Максимум 4 слота'; break; }
+      if (res.money < 80) { msg = '❌ Нужно 80 монет'; break; }
+      res.money -= 80; RUN.inventorySlots++;
+      msg = `🏥 Дополнительный слот открыт! Слотов: ${RUN.inventorySlots}.`;
+      break;
+    }
     default: msg = '?';
   }
   shopMsg = msg;
@@ -1365,14 +1405,15 @@ function renderResBar() {
 }
 
 function renderPhaseBar() {
-  // Steps: K1(0) shop1(1) K2(2) shop2(3) B1(4) shop3(5) K3(6) shop4(7) B2(8) shop5(9) K4(10) shop6(11) B3(12)
+  // Steps (17): K1 s1 K2 s2 B1 s3 K3 s4 K4 s5 B2 s6 K5 s7 K6 s8 B3
+  // roomIdx*2 → step; shopVisible → shopNextRoomIdx*2-1
   let active = currentRoomIdx * 2;
   const shopVisible = !document.getElementById('shop-overlay').classList.contains('hidden');
   if (shopVisible) active = shopNextRoomIdx * 2 - 1;
   [
     'ps-room1','ps-shop1','ps-room2','ps-shop2','ps-boss1',
-    'ps-shop3','ps-room3','ps-shop4','ps-boss2',
-    'ps-shop5','ps-room4','ps-shop6','ps-boss3',
+    'ps-shop3','ps-room3','ps-shop4','ps-room4','ps-shop5','ps-boss2',
+    'ps-shop6','ps-room5','ps-shop7','ps-room6','ps-shop8','ps-boss3',
   ].forEach((id, idx) => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -1484,10 +1525,17 @@ function renderToolCards() {
     'card-slot' + (S.tool === 'echobeamer' ? ' sel-echobeamer' : '') +
     (blocked === 1 ? ' slot-blocked' : '');
 
-  for (let i = 0; i < 2; i++) {
-    const slotEl  = document.getElementById(`card-${i + 2}`);
-    const item    = S.player.inventory[i];
-    const isBlk   = blocked === (i + 2);
+  const maxSlots = S.player.inventorySlots || 2;
+  for (let i = 0; i < 4; i++) {
+    const slotEl = document.getElementById(`card-${i + 2}`);
+    if (!slotEl) continue;
+    if (i >= maxSlots) {
+      slotEl.className = 'card-slot hidden';
+      slotEl.innerHTML = '';
+      continue;
+    }
+    const item  = S.player.inventory[i];
+    const isBlk = blocked === (i + 2);
     if (!item) {
       slotEl.className = 'card-slot empty' + (isBlk ? ' slot-blocked' : '');
       slotEl.innerHTML = `<div class="card-inner empty-inner"><div class="empty-plus">+</div><div class="empty-label">слот</div></div>`;
@@ -1506,6 +1554,18 @@ function renderToolCards() {
           <svg class="card-art" viewBox="0 0 64 64"><rect x="14" y="20" width="36" height="24" rx="4" fill="none" stroke="#f39c12" stroke-width="2"/><rect x="50" y="28" width="5" height="8" rx="2" fill="#f39c12" opacity=".7"/><rect x="16" y="22" width="14" height="20" rx="2" fill="rgba(243,156,18,.35)"/><rect x="31" y="22" width="7" height="20" rx="2" fill="rgba(243,156,18,.2)"/><text x="32" y="37" text-anchor="middle" font-size="11" fill="#f39c12">+3э</text></svg>
           <div class="card-name">ПОВЕРБАНК</div>
           <div class="card-cost gold">${isBlk ? '🔒 БЛОК' : 'нажать → +3э'}</div>
+        </div>`;
+    } else if (item.type === 'aggr-filter') {
+      slotEl.className = 'card-slot consumable-filter' + (isBlk ? ' slot-blocked' : '');
+      slotEl.innerHTML = `
+        <div class="card-inner">
+          <svg class="card-art" viewBox="0 0 64 64">
+            <circle cx="32" cy="32" r="20" fill="none" stroke="#e74c3c" stroke-width="2" opacity=".6"/>
+            <line x1="20" y1="20" x2="44" y2="44" stroke="#e74c3c" stroke-width="3" stroke-linecap="round" opacity=".8"/>
+            <polygon points="32,14 40,28 24,28" fill="#e74c3c" opacity=".5"/>
+          </svg>
+          <div class="card-name">ГЛУШИТЕЛЬ</div>
+          <div class="card-cost" style="color:#e74c3c">${isBlk ? '🔒 БЛОК' : 'пассив ×2'}</div>
         </div>`;
     }
   }
@@ -1610,7 +1670,10 @@ function renderEphTracker() {
           ? `${eph.scanned}/${totalStr} ✓`
           : `${revealed}/${knownBefore ? total : '?'} сегментов`;
         const memStr = eph.triggered ? '★ триггер!' : (memFound ? '◆ найдена' : '· не найдена');
-        const effectColors = { green: '#2ecc71', yellow: '#f39c12', red: '#e74c3c', blue: '#4ecdc4', purple: '#9b59b6' };
+        // Синие сбежавшие — скрыть карточку
+        if (eph.type === 'blue' && eph.escaped) return;
+
+        const effectColors = { green: '#2ecc71', yellow: '#f39c12', red: '#e74c3c', blue: '#3b82f6', purple: '#9b59b6' };
         // Show Echobeamer effect only after first scan; show Locator effect only after Locator hit
         // Exception: if known from a previous run, show everything
         const knownPrev = encyclopediaAtRunStart.has(eph.name);
@@ -1619,6 +1682,19 @@ function renderEphTracker() {
         let effectLine  = '';
         if (showEcho && EPH_EFFECTS_ECHO[eph.type]) effectLine += EPH_EFFECTS_ECHO[eph.type];
         if (showLoc  && EPH_EFFECTS_LOC[eph.type])  effectLine += (effectLine ? '. ' : '') + EPH_EFFECTS_LOC[eph.type];
+
+        // Агрессия красного — счётчик до следующего удара
+        const hasFilter   = S.player.inventory.some(i => i && i.type === 'aggr-filter');
+        const aggrInterval = hasFilter ? RED_AGGR_INTERVAL * 2 : RED_AGGR_INTERVAL;
+        const redAggrLine = eph.type === 'red' && eph.aggrActive && !eph.done
+          ? `<div class="eph-effect" style="color:#e74c3c">⚔ АГРЕССИЯ! Удар через ${eph.aggrTimer} ход${eph.aggrTimer === 1 ? '' : 'а'} (каждые ${aggrInterval})</div>`
+          : '';
+
+        // Побег синего — счётчик страха
+        const blueFearLine = eph.type === 'blue' && eph.fearActive && !eph.done
+          ? `<div class="eph-effect" style="color:#e74c3c">⏱ БЕГСТВО через ${eph.fearTimer} ход${eph.fearTimer === 1 ? '' : 'а'}</div>`
+          : '';
+
         card.innerHTML = `
           <div class="eph-icon ${eph.type}-icon">${icon}</div>
           <div class="eph-info">
@@ -1626,7 +1702,8 @@ function renderEphTracker() {
             <div class="eph-prog">${prog}</div>
             <div class="eph-mem">${memStr}</div>
             ${eph.type === 'purple' && !eph.done ? `<div class="eph-effect" style="color:#9b59b6">⚠ ИНВЕРСИЯ АКТИВНА</div>` : ''}
-            ${eph.type === 'blue' && eph.fearActive && !eph.done ? `<div class="eph-effect" style="color:#e74c3c">⏱ БЕГСТВО через ${eph.fearTimer} ходов</div>` : ''}
+            ${redAggrLine}
+            ${blueFearLine}
             ${effectLine ? `<div class="eph-effect" style="color:${effectColors[eph.type]}">${effectLine}</div>` : ''}
           </div>`;
         if (knownNow || knownBefore) card.appendChild(buildMiniShape(eph));
@@ -1908,7 +1985,10 @@ function renderShopOverlay() {
   document.getElementById('s-hp').textContent     = `${RUN.hp}/${RUN.hpMax}`;
   document.getElementById('s-bat').textContent    = RUN.battery;
   document.getElementById('s-batmax').textContent = RUN.batMax;
-  document.getElementById('s-shield').textContent = RUN.inventory.map(i => i.type === 'shield' ? '🛡' : '⚡').join(' ');
+  const itemIcons = { shield: '🛡', powerbank: '⚡', 'aggr-filter': '🔕' };
+  document.getElementById('s-shield').textContent =
+    RUN.inventory.map(i => itemIcons[i.type] ?? '?').join(' ') +
+    ` (слотов: ${RUN.inventory.length}/${RUN.inventorySlots})`;
 
   const batIdx  = RUN.batUpgrades;
   const batCostEl = document.getElementById('bat-up-cost');
@@ -1967,6 +2047,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('card-2').addEventListener('click', () => useInventorySlot(0));
   document.getElementById('card-3').addEventListener('click', () => useInventorySlot(1));
+  document.getElementById('card-4').addEventListener('click', () => useInventorySlot(2));
+  document.getElementById('card-5').addEventListener('click', () => useInventorySlot(3));
   document.addEventListener('keydown', e => {
     if (S.phase !== 'playing') return;
     if (e.key.toLowerCase() === 'l') { S.tool = 'locator';    renderToolCards(); renderGrid(); }
