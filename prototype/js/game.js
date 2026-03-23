@@ -12,6 +12,76 @@ const ECHO_COST                = 2;
 const HOSTILE_BOSS_SEG_TURNS   = 3;
 const RED_AGGR_INTERVAL        = 3;   // red ephemer generates hostile cell every N turns
 
+// ─── MEMBRANE TYPES (M-01..M-12) ─────────────────────────────────
+// 2 types randomly assigned per color each run.
+const MEMBRANE_DEFS = {
+  'M-01': { name: 'Пульс',        symbol: 'Ψ', desc: '+3э; переполнение → +1 лимит батареи' },
+  'M-02': { name: 'Волна',        symbol: '≋', desc: 'Раскрыть строку мембраны' },
+  'M-03': { name: 'Сонар',        symbol: '◎', desc: 'Все числовые клетки раскрыты' },
+  'M-04': { name: 'Усиление',     symbol: '⊕', desc: '+3 бесплатных Эхолуча' },
+  'M-05': { name: 'Исследование', symbol: '✦', desc: '+3 ОИ +10м' },
+  'M-06': { name: 'Щит',         symbol: '△', desc: 'Следующий штраф отменён' },
+  'M-07': { name: 'Эхолот',       symbol: '⊙', desc: '3 клетки с макс. числами раскрыты' },
+  'M-08': { name: 'Взрыв',        symbol: '✸', desc: 'Раскрытие 3×3 + 2э' },
+  'M-09': { name: 'Память',       symbol: '◈', desc: 'Форма следующего эфемера того же цвета видна' },
+  'M-10': { name: 'Резонанс',     symbol: '∞', desc: 'Следующий Trigger срабатывает дважды' },
+  'M-11': { name: 'Прозрение',    symbol: '◇', desc: '2 эфемера добавляются в Энциклопедию' },
+  'M-12': { name: 'Регенерация',  symbol: '♥', desc: '+1 HP; при макс. HP → +1 лимит HP' },
+};
+function assignColorMembranes() {
+  const pool = Object.keys(MEMBRANE_DEFS);
+  // Fisher-Yates shuffle
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return {
+    green:  [pool[0],  pool[1]],
+    yellow: [pool[2],  pool[3]],
+    red:    [pool[4],  pool[5]],
+    blue:   [pool[6],  pool[7]],
+    purple: [pool[8],  pool[9]],
+  };
+}
+
+// ─── EQUIPMENT DATABASE ───────────────────────────────────────────
+const EQUIPMENT_DB = {
+  hospital: {
+    standard: [],
+    locked: [
+      { id: 'H-01', name: 'Гарпун',         type: 'tool',      price: 80,  desc: 'Скан (5э). <3 сегм. → авто-засчёт. Квест.' },
+      { id: 'H-03', name: 'Анестезия',      type: 'consumable',price: 60,  desc: 'Заморозить таймеры 1 эфемера на 5 ходов' },
+      { id: 'H-04', name: 'Сканер жизни',   type: 'tool',      price: 70,  desc: 'Кол-во нераскрытых сегментов (1э)' },
+      { id: 'H-05', name: 'Стимулятор',     type: 'passive',   price: 90,  desc: 'При HP=1 → авто +2 HP. Одноразовый.' },
+      { id: 'H-06', name: 'Биоэкстрактор',  type: 'consumable',price: 75,  desc: 'Гарантирует редкий ресурс следующего эфемера' },
+    ],
+  },
+  institute: {
+    standard: [
+      { id: 'I-05', name: 'Архивная метка', type: 'consumable',price: 50,  desc: '+3 строки Энц. для следующего эфемера' },
+    ],
+    locked: [
+      { id: 'I-01', name: 'Датчик слежения',type: 'passive',   price: 65,  desc: '+1 ОИ каждые 5 ходов. Побег → +5 ОИ.' },
+      { id: 'I-02', name: 'Спектроскоп',    type: 'tool',      price: 70,  desc: 'Тип мембраны без скана (1э)' },
+      { id: 'I-03', name: 'Анализатор',     type: 'passive',   price: 50,  desc: 'После скана: след. сегмент — мембрана?' },
+      { id: 'I-04', name: 'Нейронная карта',type: 'tool',      price: 80,  desc: 'Числа в 5×5 (3э)' },
+      { id: 'I-06', name: 'Резонансный зонд',type:'consumable', price: 60,  desc: 'Форма и размер нераскрытого эфемера' },
+    ],
+  },
+  market: {
+    standard: [
+      { id: 'BM-04', name: 'Инсайдер',      type: 'consumable',price: 35,  desc: 'Цвета и кол-во эфемеров следующей комнаты' },
+    ],
+    locked: [
+      { id: 'BM-01', name: 'Двойная ставка',type: 'consumable',price: 55,  desc: 'Следующий ресурс ×2, след. штраф ×2 (–2 HP)' },
+      { id: 'BM-02', name: 'Контрабандный скан',type:'tool',   price: 75,  desc: 'Скан (3э), ресурс без цветовых эффектов' },
+      { id: 'BM-03', name: 'Детонатор',     type: 'tool',      price: 50,  desc: 'Взрыв жёлтого 3×3+2э без штрафа (2э)' },
+      { id: 'BM-05', name: 'Фальшивый след',type: 'consumable',price: 45,  desc: 'Следующий штраф → –5 ОИ вместо –1 HP' },
+      { id: 'BM-06', name: 'Резервуар ксиллы',type:'passive',  price: 100, desc: 'Хранит до 3 кристаллов ксиллы. 80м/шт.' },
+    ],
+  },
+};
+
 // ─── EPHEMER EFFECT DESCRIPTIONS ─────────────────────────────────
 // Shown in tracker after first Echobeam on this ephemer (or if known from prev run)
 const EPH_EFFECTS_ECHO = {
@@ -288,8 +358,11 @@ function initRun() {
     battery:     BAT_START,
     comboNums:   0,
     res:         { green: 0, yellow: 0, pearl: 0, money: 0, oi: 0, warpEssence: 0 },
-    inventory:      [],
-    inventorySlots: 2,
+    inventory:         [],
+    inventorySlots:    2,
+    freeEchobeams:     0,
+    nextTriggerDouble: false,
+    colorMembranes:    assignColorMembranes(),
     colorCounts: { green: 0, yellow: 0, red: 0, blue: 0, purple: 0 },
     shapeCounts: {},
     stats: {
@@ -331,8 +404,10 @@ function startRoom(roomIdx) {
       batUpgrades: RUN.batUpgrades,
       res:         { ...RUN.res },
       comboNums:   RUN.comboNums,
-      inventory:      [...RUN.inventory],
-      inventorySlots: RUN.inventorySlots,
+      inventory:         [...RUN.inventory],
+      inventorySlots:    RUN.inventorySlots,
+      freeEchobeams:     RUN.freeEchobeams,
+      nextTriggerDouble: RUN.nextTriggerDouble,
       colorCounts: { ...RUN.colorCounts },
       shapeCounts: { ...RUN.shapeCounts },
     },
@@ -360,6 +435,10 @@ function startRoom(roomIdx) {
   };
   if (cfg.isBoss) placeBoss(cfg.bossIdx);
   else            placeEphemers(cfg.ephConfig);
+  // Full battery warning at room start
+  if (S.player.battery >= S.player.batMax) {
+    addLog(`⚠ Батарея полна — Эхолучи недоступны, пока не потратишь энергию!`, 'warn');
+  }
   calcResonance();
   tickPurpleInversion();  // set invertActive correctly from turn 0
   hideShopOverlay();
@@ -380,8 +459,10 @@ function saveRoomToRun() {
   RUN.batUpgrades = S.player.batUpgrades;
   RUN.comboNums   = S.player.comboNums;
   RUN.res         = { ...S.player.res };
-  RUN.inventory      = [...S.player.inventory];
-  RUN.inventorySlots = S.player.inventorySlots;
+  RUN.inventory         = [...S.player.inventory];
+  RUN.inventorySlots    = S.player.inventorySlots;
+  RUN.freeEchobeams     = S.player.freeEchobeams;
+  RUN.nextTriggerDouble = S.player.nextTriggerDouble;
   RUN.colorCounts = { ...S.player.colorCounts };
   RUN.shapeCounts = { ...S.player.shapeCounts };
 
@@ -480,6 +561,13 @@ function _placeEphemersOnGrid(grid, ephemers, ephConfig) {
         fearActive: false, fearTimer: 5, escaped: false,
         // discovery tracking
         locatorHit: false,
+        // membrane: which type this ephemer has (set from run's colorMembranes)
+        memType: (() => {
+          const mems = RUN.colorMembranes?.[cfg.type];
+          return mems ? mems[Math.floor(Math.random() * mems.length)] : null;
+        })(),
+        // purple: inversion only triggered after Locator hit, not on mere presence
+        invertTriggered: false,
       };
       placed.forEach(s => {
         const c = grid[s.y][s.x];
@@ -590,16 +678,13 @@ function tickBossPulse() {
 
 // ─── RED EPHEMER AGGRESSION ───────────────────────────────────────
 // Per-ephemer: every RED_AGGR_INTERVAL turns while aggrActive → –1 HP directly
-// Глушитель агрессии (aggr-filter) в инвентаре удваивает интервал.
 function tickRedAggression() {
   if (ROOM_CONFIGS[currentRoomIdx].isBoss) return;
-  const hasFilter = S.player.inventory.some(i => i && i.type === 'aggr-filter');
-  const interval  = hasFilter ? RED_AGGR_INTERVAL * 2 : RED_AGGR_INTERVAL;
   S.ephemers.forEach(eph => {
     if (eph.type !== 'red' || eph.done || !eph.aggrActive) return;
     eph.aggrTimer--;
     if (eph.aggrTimer <= 0) {
-      eph.aggrTimer = interval;
+      eph.aggrTimer = RED_AGGR_INTERVAL;
       const nm = eph.discovered ? eph.name : 'Красный эфемер';
       addLog(`🔴 ${nm} АТАКУЕТ! –1 HP!`, 'err');
       takeDamage(1);
@@ -657,9 +742,9 @@ function tickBlueEphemers() {
 }
 
 // ─── PURPLE EPHEMER INVERSION ─────────────────────────────────────
-// Passive: while any purple ephemer is not yet done, empty cells drain -1э
+// Active only after Locator hit on a purple ephemer — not on mere presence.
 function tickPurpleInversion() {
-  S.invertActive = S.ephemers.some(e => e.type === 'purple' && !e.done);
+  S.invertActive = S.ephemers.some(e => e.type === 'purple' && !e.done && e.invertTriggered);
 }
 
 function triggerEMI() {
@@ -844,6 +929,9 @@ function doLocator(c) {
     } else if (eph.type === 'blue') {
       if (!eph.fearActive) { eph.fearActive = true; eph.fearTimer = 5; }
       addLog(`Локатор на ${nd}. ${nd} пугается! Сбежит через 5 ходов.`, 'err');
+    } else if (eph.type === 'purple') {
+      eph.invertTriggered = true;
+      addLog(`Локатор на ${nd}. ИНВЕРСИЯ активирована! Пустые клетки = –1э, пока не исследован.`, 'err');
     } else {
       addLog(`Локатор на ${nd}. ${nd} атакует. –1 HP.`, 'err');
     }
@@ -1068,12 +1156,18 @@ function checkEphDone(eph) {
       addLog(`🚪 Выход разблокирован. Добей босса для полной победы!`, 'ok');
       SFX.victory();
     }
-    // Step 2: all segments revealed → final victory
-    if (eph.eyesNeutralized && eph.scanned + eph.opened >= eph.segs.length) {
-      eph.done = true;
-      S.phase = 'boss-won';
-      addLog(`🏆 БОСС УНИЧТОЖЕН! Полная победа!`, 'trigger');
-      SFX.victory();
+    // Step 2: all segments revealed (or hostile-blocked) → final victory
+    if (eph.eyesNeutralized) {
+      const hostileBlocked = eph.segs.filter(s => {
+        const c = cell(s.x, s.y);
+        return c && !c.vis && c.isHostile;
+      }).length;
+      if (eph.scanned + eph.opened + hostileBlocked >= eph.segs.length) {
+        eph.done = true;
+        S.phase = 'boss-won';
+        addLog(`🏆 БОСС УНИЧТОЖЕН! Полная победа!`, 'trigger');
+        SFX.victory();
+      }
     }
     return;
   }
@@ -1154,8 +1248,14 @@ function addEnergy(delta, overflow) {
 function takeDamage(n) {
   const shieldIdx = S.player.inventory.findIndex(i => i.type === 'shield');
   if (shieldIdx !== -1) {
-    S.player.inventory.splice(shieldIdx, 1);
-    addLog(`🛡 Резонансный щит поглотил урон!`, 'ok');
+    const shield = S.player.inventory[shieldIdx];
+    shield.hp = (shield.hp ?? 2) - 1;
+    if (shield.hp <= 0) {
+      S.player.inventory.splice(shieldIdx, 1);
+      addLog(`🛡 Щит сломан! Поглотил последний удар.`, 'ok');
+    } else {
+      addLog(`🛡 Щит треснул (HP щита: ${shield.hp}). Поглотил удар!`, 'ok');
+    }
     return;
   }
   S.player.hp = Math.max(0, S.player.hp - n);
@@ -1317,8 +1417,8 @@ function shopAction(action) {
     case 'buy-shield':
       if (RUN.inventory.length >= RUN.inventorySlots) { msg = `❌ Нет свободных слотов (${RUN.inventorySlots})`; break; }
       if (res.money < 40) { msg = '❌ Нужно 40 монет'; break; }
-      res.money -= 40; RUN.inventory.push({ type: 'shield' });
-      msg = `🛡 Щит помещён в слот ${RUN.inventory.length}.`;
+      res.money -= 40; RUN.inventory.push({ type: 'shield', hp: 2 });
+      msg = `🛡 Щит (2 удара) помещён в слот ${RUN.inventory.length}.`;
       break;
     case 'buy-powerbank':
       if (RUN.inventory.length >= RUN.inventorySlots) { msg = `❌ Нет свободных слотов (${RUN.inventorySlots})`; break; }
@@ -1326,14 +1426,8 @@ function shopAction(action) {
       res.money -= 50; RUN.inventory.push({ type: 'powerbank' });
       msg = `⚡ Повербанк помещён в слот ${RUN.inventory.length}.`;
       break;
-    case 'buy-aggr-filter':
-      if (RUN.inventory.length >= RUN.inventorySlots) { msg = `❌ Нет свободных слотов (${RUN.inventorySlots})`; break; }
-      if (res.money < 60) { msg = '❌ Нужно 60 монет'; break; }
-      res.money -= 60; RUN.inventory.push({ type: 'aggr-filter' });
-      msg = `🔕 Глушитель в слот ${RUN.inventory.length}. Интервал атак красных ×2.`;
-      break;
     case 'buy-slot': {
-      if (RUN.inventorySlots >= 4) { msg = '❌ Максимум 4 слота'; break; }
+      if (RUN.inventorySlots >= 6) { msg = '❌ Максимум 6 слотов инвентаря'; break; }
       if (res.money < 80) { msg = '❌ Нужно 80 монет'; break; }
       res.money -= 80; RUN.inventorySlots++;
       msg = `🏥 Дополнительный слот открыт! Слотов: ${RUN.inventorySlots}.`;
@@ -1485,7 +1579,8 @@ function renderGrid() {
               el.textContent = '★';
               el.classList.add('cell-eye');
             } else if (c.isMembrane) {
-              el.textContent = eph.triggered ? '★' : '◆';
+              const memSym = (eph.memType && MEMBRANE_DEFS[eph.memType]) ? MEMBRANE_DEFS[eph.memType].symbol : '◆';
+              el.textContent = eph.triggered ? '★' : memSym;
               if (eph.triggered) el.classList.add('membrane-triggered');
             } else {
               el.textContent = '●';
@@ -1526,12 +1621,13 @@ function renderToolCards() {
     (blocked === 1 ? ' slot-blocked' : '');
 
   const maxSlots = S.player.inventorySlots || 2;
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 6; i++) {
     const slotEl = document.getElementById(`card-${i + 2}`);
     if (!slotEl) continue;
     if (i >= maxSlots) {
-      slotEl.className = 'card-slot hidden';
-      slotEl.innerHTML = '';
+      // Locked slot — show with lock icon and unlock hint
+      slotEl.className = 'card-slot slot-locked';
+      slotEl.innerHTML = `<div class="card-inner empty-inner"><div class="locked-icon">🔒</div><div class="empty-label">80м</div></div>`;
       continue;
     }
     const item  = S.player.inventory[i];
@@ -1540,32 +1636,28 @@ function renderToolCards() {
       slotEl.className = 'card-slot empty' + (isBlk ? ' slot-blocked' : '');
       slotEl.innerHTML = `<div class="card-inner empty-inner"><div class="empty-plus">+</div><div class="empty-label">слот</div></div>`;
     } else if (item.type === 'shield') {
-      slotEl.className = 'card-slot consumable-shield' + (isBlk ? ' slot-blocked' : '');
+      const cracked = item.hp !== undefined && item.hp < 2;
+      const shieldColor = cracked ? '#e7943c' : '#4ecdc4';
+      const shieldLabel = cracked ? '⚠ ТРЕЩИНА' : 'авто-защита';
+      slotEl.className = 'card-slot consumable-shield' + (cracked ? ' shield-cracked' : '') + (isBlk ? ' slot-blocked' : '');
       slotEl.innerHTML = `
         <div class="card-inner">
-          <svg class="card-art" viewBox="0 0 64 64"><path d="M32 8 L54 18 L54 34 Q54 50 32 58 Q10 50 10 34 L10 18 Z" fill="none" stroke="#4ecdc4" stroke-width="2" opacity=".8"/><path d="M32 16 L46 23 L46 33 Q46 44 32 50 Q18 44 18 33 L18 23 Z" fill="rgba(78,205,196,.1)" stroke="#4ecdc4" stroke-width="1"/><text x="32" y="37" text-anchor="middle" font-size="14" fill="#4ecdc4">🛡</text></svg>
-          <div class="card-name">ЩИТ</div>
-          <div class="card-cost teal">${isBlk ? '🔒 БЛОК' : 'авто-защита'}</div>
+          <svg class="card-art" viewBox="0 0 64 64">
+            <path d="M32 8 L54 18 L54 34 Q54 50 32 58 Q10 50 10 34 L10 18 Z" fill="none" stroke="${shieldColor}" stroke-width="2" opacity=".8"/>
+            <path d="M32 16 L46 23 L46 33 Q46 44 32 50 Q18 44 18 33 L18 23 Z" fill="rgba(78,205,196,.1)" stroke="${shieldColor}" stroke-width="1"/>
+            ${cracked ? '<line x1="28" y1="14" x2="36" y2="52" stroke="#e74c3c" stroke-width="1.5" opacity=".7"/>' : ''}
+            <text x="32" y="37" text-anchor="middle" font-size="14" fill="${shieldColor}">🛡</text>
+          </svg>
+          <div class="card-name">ЩИТ${cracked ? ' ✦1' : ' ✦2'}</div>
+          <div class="card-cost" style="color:${shieldColor}">${isBlk ? '🔒 БЛОК' : shieldLabel}</div>
         </div>`;
     } else if (item.type === 'powerbank') {
       slotEl.className = 'card-slot consumable-powerbank' + (isBlk ? ' slot-blocked' : '');
       slotEl.innerHTML = `
         <div class="card-inner">
-          <svg class="card-art" viewBox="0 0 64 64"><rect x="14" y="20" width="36" height="24" rx="4" fill="none" stroke="#f39c12" stroke-width="2"/><rect x="50" y="28" width="5" height="8" rx="2" fill="#f39c12" opacity=".7"/><rect x="16" y="22" width="14" height="20" rx="2" fill="rgba(243,156,18,.35)"/><rect x="31" y="22" width="7" height="20" rx="2" fill="rgba(243,156,18,.2)"/><text x="32" y="37" text-anchor="middle" font-size="11" fill="#f39c12">+3э</text></svg>
+          <svg class="card-art" viewBox="0 0 64 64"><rect x="14" y="20" width="36" height="24" rx="4" fill="none" stroke="#f39c12" stroke-width="2"/><rect x="50" y="28" width="5" height="8" rx="2" fill="#f39c12" opacity=".7"/><rect x="16" y="22" width="14" height="20" rx="2" fill="rgba(243,156,18,.35)"/><rect x="31" y="22" width="7" height="20" rx="2" fill="rgba(243,156,18,.2)"/><text x="32" y="37" text-anchor="middle" font-size="11" fill="#f39c12">+4э</text></svg>
           <div class="card-name">ПОВЕРБАНК</div>
-          <div class="card-cost gold">${isBlk ? '🔒 БЛОК' : 'нажать → +3э'}</div>
-        </div>`;
-    } else if (item.type === 'aggr-filter') {
-      slotEl.className = 'card-slot consumable-filter' + (isBlk ? ' slot-blocked' : '');
-      slotEl.innerHTML = `
-        <div class="card-inner">
-          <svg class="card-art" viewBox="0 0 64 64">
-            <circle cx="32" cy="32" r="20" fill="none" stroke="#e74c3c" stroke-width="2" opacity=".6"/>
-            <line x1="20" y1="20" x2="44" y2="44" stroke="#e74c3c" stroke-width="3" stroke-linecap="round" opacity=".8"/>
-            <polygon points="32,14 40,28 24,28" fill="#e74c3c" opacity=".5"/>
-          </svg>
-          <div class="card-name">ГЛУШИТЕЛЬ</div>
-          <div class="card-cost" style="color:#e74c3c">${isBlk ? '🔒 БЛОК' : 'пассив ×2'}</div>
+          <div class="card-cost gold">${isBlk ? '🔒 БЛОК' : 'нажать → +4э'}</div>
         </div>`;
     }
   }
@@ -1597,9 +1689,9 @@ function useInventorySlot(slotIdx) {
   const item = S.player.inventory[slotIdx];
   if (!item) return;
   if (item.type === 'powerbank') {
-    addEnergy(3, false);
+    addEnergy(4, false);
     S.player.inventory.splice(slotIdx, 1);
-    addLog(`⚡ Повербанк! +3э. Батарея: ${S.player.battery}/${S.player.batMax}`, 'ok');
+    addLog(`⚡ Повербанк! +4э. Батарея: ${S.player.battery}/${S.player.batMax}`, 'ok');
     SFX.battery();
     renderAll();
   }
@@ -1684,26 +1776,27 @@ function renderEphTracker() {
         if (showLoc  && EPH_EFFECTS_LOC[eph.type])  effectLine += (effectLine ? '. ' : '') + EPH_EFFECTS_LOC[eph.type];
 
         // Агрессия красного — счётчик до следующего удара
-        const hasFilter   = S.player.inventory.some(i => i && i.type === 'aggr-filter');
-        const aggrInterval = hasFilter ? RED_AGGR_INTERVAL * 2 : RED_AGGR_INTERVAL;
-        const redAggrLine = eph.type === 'red' && eph.aggrActive && !eph.done
-          ? `<div class="eph-effect" style="color:#e74c3c">⚔ АГРЕССИЯ! Удар через ${eph.aggrTimer} ход${eph.aggrTimer === 1 ? '' : 'а'} (каждые ${aggrInterval})</div>`
-          : '';
+        const redBadge = eph.type === 'red' && eph.aggrActive && !eph.done
+          ? `<span class="timer-badge red-badge">⚔${eph.aggrTimer}</span>` : '';
 
         // Побег синего — счётчик страха
-        const blueFearLine = eph.type === 'blue' && eph.fearActive && !eph.done
-          ? `<div class="eph-effect" style="color:#e74c3c">⏱ БЕГСТВО через ${eph.fearTimer} ход${eph.fearTimer === 1 ? '' : 'а'}</div>`
-          : '';
+        const blueBadge = eph.type === 'blue' && eph.fearActive && !eph.done
+          ? `<span class="timer-badge blue-badge">⏱${eph.fearTimer}</span>` : '';
+
+        // Мембрана — тип
+        const memTypeInfo = eph.memType && MEMBRANE_DEFS[eph.memType]
+          ? ` <span class="mem-type-badge">${MEMBRANE_DEFS[eph.memType].symbol} ${MEMBRANE_DEFS[eph.memType].name}</span>` : '';
 
         card.innerHTML = `
           <div class="eph-icon ${eph.type}-icon">${icon}</div>
           <div class="eph-info">
-            <div class="eph-name">${nameToShow}</div>
+            <div class="eph-name-row"><span class="eph-name">${nameToShow}</span>${redBadge}${blueBadge}</div>
             <div class="eph-prog">${prog}</div>
-            <div class="eph-mem">${memStr}</div>
-            ${eph.type === 'purple' && !eph.done ? `<div class="eph-effect" style="color:#9b59b6">⚠ ИНВЕРСИЯ АКТИВНА</div>` : ''}
-            ${redAggrLine}
-            ${blueFearLine}
+            <div class="eph-mem">${memStr}${memTypeInfo}</div>
+            ${eph.type === 'purple' && !eph.done && eph.invertTriggered ? `<div class="eph-effect" style="color:#9b59b6">⚠ ИНВЕРСИЯ АКТИВНА — пустые клетки: –1э</div>` : ''}
+            ${eph.type === 'purple' && !eph.done && !eph.invertTriggered ? `<div class="eph-effect" style="color:#9b59b6;opacity:.6">💜 Не тронут — инверсия неактивна</div>` : ''}
+            ${eph.type === 'red' && eph.aggrActive && !eph.done ? `<div class="eph-effect" style="color:#e74c3c">⚔ Удар каждые ${RED_AGGR_INTERVAL} хода</div>` : ''}
+            ${eph.type === 'blue' && eph.fearActive && !eph.done ? `<div class="eph-effect" style="color:#3b82f6">⏱ Сбежит через ${eph.fearTimer} ход${eph.fearTimer === 1 ? '' : 'а'}</div>` : ''}
             ${effectLine ? `<div class="eph-effect" style="color:${effectColors[eph.type]}">${effectLine}</div>` : ''}
           </div>`;
         if (knownNow || knownBefore) card.appendChild(buildMiniShape(eph));
@@ -1946,6 +2039,15 @@ function renderOverlay() {
     rows.push([`<span style="color:#f39c12">Жёлтый сгусток:</span>`,   earned.yellow]);
     rows.push([`<span style="color:#e74c3c">Красный жемчуг:</span>`,   earned.pearl]);
     rows.push([`<span style="color:#f0d060">Монеты:</span>`,            earned.money]);
+
+    // After Boss 1: hint about purple ephemers (next rooms have them)
+    if (ph === 'boss-won' && currentRoomIdx === 2) {
+      rows.push(['']);
+      rows.push([`<span style="color:#9b59b6">── 💜 НОВЫЙ ТИП: ФИОЛЕТОВЫЕ ──────</span>`, '']);
+      rows.push([`<span style="color:#9b59b6">Локатор:</span>`, 'ИНВЕРСИЯ — пустые клетки не дают +1э, а снимают 1э, пока эфемер не исследован']);
+      rows.push([`<span style="color:#9b59b6">Эхолуч:</span>`, '40% — случайный ресурс; 40% — ±1 HP; 10% — Варп-эссенция (отмена хода у босса)']);
+      rows.push([`<span style="color:#9b59b6">Визуальный эффект:</span>`, 'лампочки Локатора становятся фиолетовыми']);
+    }
   }
 
   const statsEl = document.getElementById('overlay-stats');
@@ -1985,7 +2087,7 @@ function renderShopOverlay() {
   document.getElementById('s-hp').textContent     = `${RUN.hp}/${RUN.hpMax}`;
   document.getElementById('s-bat').textContent    = RUN.battery;
   document.getElementById('s-batmax').textContent = RUN.batMax;
-  const itemIcons = { shield: '🛡', powerbank: '⚡', 'aggr-filter': '🔕' };
+  const itemIcons = { shield: '🛡', powerbank: '⚡' };
   document.getElementById('s-shield').textContent =
     RUN.inventory.map(i => itemIcons[i.type] ?? '?').join(' ') +
     ` (слотов: ${RUN.inventory.length}/${RUN.inventorySlots})`;
@@ -2049,6 +2151,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('card-3').addEventListener('click', () => useInventorySlot(1));
   document.getElementById('card-4').addEventListener('click', () => useInventorySlot(2));
   document.getElementById('card-5').addEventListener('click', () => useInventorySlot(3));
+  document.getElementById('card-6')?.addEventListener('click', () => useInventorySlot(4));
+  document.getElementById('card-7')?.addEventListener('click', () => useInventorySlot(5));
   document.addEventListener('keydown', e => {
     if (S.phase !== 'playing') return;
     if (e.key.toLowerCase() === 'l') { S.tool = 'locator';    renderToolCards(); renderGrid(); }

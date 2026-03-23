@@ -200,10 +200,14 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
 .card-slot:hover:not(.empty) { border-color: var(--dim); }
 .card-slot.sel-locator    { border-color: var(--teal); box-shadow: 0 0 12px rgba(78,205,196,.3); background: rgba(78,205,196,.06); }
 .card-slot.sel-echobeamer { border-color: var(--gold); box-shadow: 0 0 12px rgba(240,208,96,.3); background: rgba(240,208,96,.06); }
-.card-slot.empty { cursor: default; border-style: dashed; opacity: .4; }
+.card-slot.empty      { cursor: default; border-style: dashed; opacity: .4; }
+.card-slot.slot-locked { cursor: default; border-style: dashed; opacity: .35; background: rgba(30,10,10,.3); }
+.card-slot.slot-locked .locked-icon { font-size: 20px; margin-top: 24px; opacity: .5; }
 .card-slot.consumable-shield   { border-color: #4ecdc4; box-shadow: 0 0 10px rgba(78,205,196,.25); cursor: pointer; }
+.card-slot.consumable-shield.shield-cracked { border-color: #e7943c; box-shadow: 0 0 10px rgba(231,148,60,.35); }
 .card-slot.consumable-powerbank { border-color: #f0d060; box-shadow: 0 0 10px rgba(240,208,96,.25); cursor: pointer; }
 .card-slot.consumable-shield:hover   { border-color: #7eeee7; box-shadow: 0 0 14px rgba(78,205,196,.4); }
+.card-slot.consumable-shield.shield-cracked:hover { border-color: #ffb060; }
 .card-slot.consumable-powerbank:hover { border-color: #ffe080; box-shadow: 0 0 14px rgba(240,208,96,.4); }
 .card-slot.slot-blocked {
   border-color: #f39c12 !important;
@@ -282,9 +286,27 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
 .eph-icon.yellow-icon { background: rgba(243,156,18,.2);  color: var(--yellow); }
 
 .eph-info { flex: 1; }
+.eph-name-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
 .eph-name  { font-size: 15px; color: var(--text); letter-spacing: 1px; }
 .eph-prog  { font-size: 14px; color: var(--dim); margin-top: 2px; }
 .eph-mem   { font-size: 14px; color: var(--gold); }
+.timer-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: #fff;
+  line-height: 1.4;
+}
+.red-badge  { background: #c0392b; }
+.blue-badge { background: #2563eb; }
+.mem-type-badge {
+  font-size: 12px;
+  color: var(--teal);
+  opacity: .75;
+  margin-left: 4px;
+}
 
 /* ─── LOG ────────────────────────────────────────── */
 #log-entries { display: flex; flex-direction: column; gap: 3px; }
@@ -570,7 +592,6 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
 .scanned-blue { background:rgba(59,130,246,.25); border:1px solid rgba(59,130,246,.6); color:#3b82f6; box-shadow:0 0 10px rgba(59,130,246,.4); }
 .eph-card.blue-eph  { border-color: rgba(59,130,246,.4); }
 .eph-icon.blue-icon { background: rgba(59,130,246,.2); color: #3b82f6; }
-.card-slot.consumable-filter { border-color: rgba(231,76,60,.4); }
 
 /* ─── PURPLE EPHEMERS (Варп / Проклятые) ─────────── */
 .open-purple   { background:rgba(155,89,182,.12); border:1px solid rgba(155,89,182,.3); color:rgba(155,89,182,.5); }
