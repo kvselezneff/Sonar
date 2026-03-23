@@ -209,6 +209,9 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
 .card-slot.consumable-shield:hover   { border-color: #7eeee7; box-shadow: 0 0 14px rgba(78,205,196,.4); }
 .card-slot.consumable-shield.shield-cracked:hover { border-color: #ffb060; }
 .card-slot.consumable-powerbank:hover { border-color: #ffe080; box-shadow: 0 0 14px rgba(240,208,96,.4); }
+.card-slot.equip-slot { cursor: pointer; box-shadow: 0 0 8px rgba(155,89,182,.2); }
+.card-slot.equip-slot:hover { opacity: .9; }
+.equip-type-badge { font-size: 8px; color: var(--dim); text-transform: uppercase; letter-spacing: .5px; margin-top: 6px; }
 .card-slot.slot-blocked {
   border-color: #f39c12 !important;
   opacity: 0.55;
@@ -505,6 +508,37 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
 
 .org-desc  { font-size: 14px; color: var(--dim); margin-bottom: 14px; letter-spacing: 1px; }
 .shop-items { display: flex; flex-direction: column; gap: 10px; }
+
+/* ─── ORG TABS ───────────────────────────────────── */
+.org-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.org-tab {
+  background: transparent; border: 1px solid var(--border);
+  color: var(--dim); font-family: inherit; font-size: 11px;
+  padding: 4px 10px; border-radius: 3px; cursor: pointer;
+  letter-spacing: .5px; transition: all .15s;
+}
+.org-tab:hover { border-color: var(--teal); color: var(--teal); }
+.org-tab.active { border-color: var(--teal); color: var(--teal); background: rgba(78,205,196,.08); }
+
+/* ─── EQUIP ITEMS IN SHOP ────────────────────────── */
+.equip-item {
+  background: rgba(155,89,182,.05); border: 1px solid rgba(155,89,182,.25);
+  border-radius: 6px; padding: 8px 10px;
+}
+.equip-item.equip-locked { opacity: .4; }
+.equip-item .item-name { font-size: 13px; color: #c8a0e0; margin-bottom: 2px; }
+.equip-item .item-id { font-size: 10px; color: var(--dim); }
+.equip-item .item-desc { font-size: 11px; color: var(--text); margin: 4px 0; }
+.equip-item .item-cost { font-size: 12px; color: var(--gold); }
+.equip-item .equip-type { font-size: 10px; color: var(--dim); margin-bottom: 4px; }
+.equip-unlock-hint { font-size: 10px; color: var(--yellow); opacity: .7; margin-top: 2px; }
+.btn-equip-buy {
+  margin-top: 6px; background: rgba(155,89,182,.2); border: 1px solid rgba(155,89,182,.5);
+  color: #c8a0e0; font-family: inherit; font-size: 11px;
+  padding: 3px 10px; border-radius: 3px; cursor: pointer;
+}
+.btn-equip-buy:hover:not(:disabled) { background: rgba(155,89,182,.4); }
+.btn-equip-buy:disabled { opacity: .35; cursor: default; }
 
 .shop-item {
   background: rgba(255,255,255,.02);

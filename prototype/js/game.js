@@ -343,6 +343,19 @@ const SFX = {
 const encyclopedia = new Set();
 let encyclopediaAtRunStart = new Set();
 
+// Equipment unlock: tracks total КЖ (red pearls) sold across all runs
+let totalPearlsSold = 0;
+// How many items per org unlock at each pearl threshold
+const EQUIP_UNLOCK_THRESHOLDS = [1, 3, 5, 7, 12]; // unlock 1st..5th item
+function unlockedEquipCount() {
+  let n = 0;
+  for (const t of EQUIP_UNLOCK_THRESHOLDS) { if (totalPearlsSold >= t) n++; else break; }
+  return n;
+}
+
+// Type labels for display
+const EQUIP_TYPE_LABEL = { tool: '🔧 инструмент', consumable: '💊 расходник', passive: '📡 пассив' };
+
 // ─── RUN STATE ────────────────────────────────────────────────────
 let RUN = {};
 let currentRoomIdx = 0;
@@ -364,6 +377,10 @@ function initRun() {
     nextTriggerDouble:  false,
     memoryPreviewColor: null,
     membraneShield:     false,
+    stimulatorActive:   false,
+    fakeTail:           false,
+    doubleBet:          false,
+    archiveMark:        false,
     colorMembranes:     assignColorMembranes(),
     colorCounts: { green: 0, yellow: 0, red: 0, blue: 0, purple: 0 },
     shapeCounts: {},
@@ -411,6 +428,10 @@ function startRoom(roomIdx) {
       freeEchobeams:      RUN.freeEchobeams,
       nextTriggerDouble:  RUN.nextTriggerDouble,
       membraneShield:     RUN.membraneShield,
+      stimulatorActive:   RUN.stimulatorActive,
+      fakeTail:           RUN.fakeTail,
+      doubleBet:          RUN.doubleBet,
+      archiveMark:        RUN.archiveMark,
       colorCounts: { ...RUN.colorCounts },
       shapeCounts: { ...RUN.shapeCounts },
     },
@@ -477,6 +498,10 @@ function saveRoomToRun() {
   RUN.freeEchobeams      = S.player.freeEchobeams;
   RUN.nextTriggerDouble  = S.player.nextTriggerDouble;
   RUN.membraneShield     = S.player.membraneShield;
+  RUN.stimulatorActive   = S.player.stimulatorActive;
+  RUN.fakeTail           = S.player.fakeTail;
+  RUN.doubleBet          = S.player.doubleBet;
+  RUN.archiveMark        = S.player.archiveMark;
   RUN.colorCounts = { ...S.player.colorCounts };
   RUN.shapeCounts = { ...S.player.shapeCounts };
 
@@ -1096,21 +1121,27 @@ function doEchobeamer(c) {
       }
     }
   } else if (eph.type === 'green') {
-    S.player.res.green++;
-    addOI(1);
-    addLog(`✅ Зелёный. +1 эссенция +1 ОИ. –${ECHO_COST}э.`, 'ok');
+    const dbl = S.player.doubleBet;
+    if (dbl) { S.player.doubleBet = false; }
+    const amt = dbl ? 2 : 1;
+    S.player.res.green += amt;
+    addOI(dbl ? 2 : 1);
+    addLog(`✅ Зелёный. +${amt} эссенция +${amt} ОИ. –${ECHO_COST}э.${dbl?' [×2]':''}`, 'ok');
     SFX.green();
   } else if (eph.type === 'yellow') {
-    S.player.res.yellow++;
+    const dbl = S.player.doubleBet;
+    if (dbl) { S.player.doubleBet = false; }
+    S.player.res.yellow += dbl ? 2 : 1;
     const room = S.player.batMax - S.player.battery;
+    const dblTag = dbl ? ' [×2]' : '';
     if (room >= 4) {
       addEnergy(4, false);
-      addLog(`✅ Жёлтый. +4 энергии +1 сгусток. Батарея: ${S.player.battery}/${S.player.batMax}.`, 'ok');
+      addLog(`✅ Жёлтый. +4 энергии +${dbl?2:1} сгусток. Батарея: ${S.player.battery}/${S.player.batMax}.${dblTag}`, 'ok');
     } else if (room > 0) {
       addEnergy(room, false);
-      addLog(`✅ Жёлтый. Батарея почти полна. +${room} энергии +1 сгусток.`, 'ok');
+      addLog(`✅ Жёлтый. Батарея почти полна. +${room} энергии +${dbl?2:1} сгусток.${dblTag}`, 'ok');
     } else {
-      addLog(`✅ Жёлтый. Батарея полна. +1 сгусток.`, 'ok');
+      addLog(`✅ Жёлтый. Батарея полна. +${dbl?2:1} сгусток.${dblTag}`, 'ok');
     }
     SFX.yellow();
   } else if (eph.type === 'red') {
@@ -1438,7 +1469,25 @@ function takeDamage(n) {
     }
     return;
   }
+  // BM-05 Фальшивый след: convert damage to -5 ОИ
+  if (S.player.fakeTail) {
+    S.player.fakeTail = false;
+    const lose = Math.min(5, S.player.res.oi);
+    S.player.res.oi -= lose;
+    addLog(`🃏 Фальшивый след: штраф → –${lose} ОИ вместо –${n} HP`, 'ok');
+    return;
+  }
   S.player.hp = Math.max(0, S.player.hp - n);
+  // H-05 Стимулятор: auto +2 HP when reaching 1 HP (one-time)
+  if (S.player.hp === 1 && S.player.stimulatorActive) {
+    S.player.stimulatorActive = false;
+    S.player.hp = Math.min(S.player.hpMax, S.player.hp + 2);
+    // Remove stimulator from inventory
+    const idx = S.player.inventory.findIndex(i => i.id === 'H-05');
+    if (idx !== -1) S.player.inventory.splice(idx, 1);
+    addLog(`💉 Стимулятор! Авто-восстановление +2 HP (${S.player.hp}/${S.player.hpMax}). Расходник убран.`, 'ok');
+    SFX.green();
+  }
   if (S.player.hp <= 0) { S.phase = 'lost'; addLog(`💀 HP = 0. Забег окончен.`, 'err'); }
 }
 
@@ -1590,10 +1639,18 @@ function shopAction(action) {
       if (res.yellow === 0) { msg = '❌ Нет жёлт. сгустка'; break; }
       { const ye = res.yellow * 15; res.money += ye; msg = `💰 Продано ${res.yellow} сгустков за ${ye}м.`; res.yellow = 0; }
       break;
-    case 'sell-pearl':
+    case 'sell-pearl': {
       if (res.pearl === 0) { msg = '❌ Нет красного жемчуга'; break; }
-      { const pe = res.pearl * 20; res.money += pe; msg = `💰 Продано ${res.pearl} жемчуга за ${pe}м.`; res.pearl = 0; }
+      const pe = res.pearl * 20;
+      totalPearlsSold += res.pearl;
+      const prevUnlock = unlockedEquipCount();
+      res.money += pe;
+      msg = `💰 Продано ${res.pearl} жемчуга за ${pe}м. Всего КЖ: ${totalPearlsSold}`;
+      res.pearl = 0;
+      const newUnlock = unlockedEquipCount();
+      if (newUnlock > prevUnlock) msg += ` — разблокировано ${newUnlock - prevUnlock} ед. оборудования!`;
       break;
+    }
     case 'buy-shield':
       if (RUN.inventory.length >= RUN.inventorySlots) { msg = `❌ Нет свободных слотов (${RUN.inventorySlots})`; break; }
       if (res.money < 40) { msg = '❌ Нужно 40 монет'; break; }
@@ -1839,6 +1896,19 @@ function renderToolCards() {
           <div class="card-name">ПОВЕРБАНК</div>
           <div class="card-cost gold">${isBlk ? '🔒 БЛОК' : 'нажать → +4э'}</div>
         </div>`;
+    } else if (item.type === 'equipment') {
+      const isPas = item.eqType === 'passive';
+      const typeLabel = isPas ? '📡' : (item.eqType === 'tool' ? '🔧' : '💊');
+      const borderColor = isPas ? '#9b59b6' : (item.eqType === 'tool' ? '#4ecdc4' : '#e67e22');
+      slotEl.className = 'card-slot equip-slot' + (isBlk ? ' slot-blocked' : '');
+      slotEl.style.borderColor = borderColor;
+      slotEl.innerHTML = `
+        <div class="card-inner">
+          <div class="equip-type-badge">${typeLabel} ${item.eqType === 'passive' ? 'пассив' : item.eqType === 'tool' ? 'инструм.' : 'расходник'}</div>
+          <div class="card-name" style="font-size:9px;margin-top:2px">${item.id}</div>
+          <div class="card-name" style="font-size:10px">${item.name}</div>
+          <div class="card-cost" style="color:${borderColor};font-size:8px">${isBlk ? '🔒 БЛОК' : (isPas ? 'авто' : 'нажать')}</div>
+        </div>`;
     }
   }
 }
@@ -1873,6 +1943,47 @@ function useInventorySlot(slotIdx) {
     S.player.inventory.splice(slotIdx, 1);
     addLog(`⚡ Повербанк! +4э. Батарея: ${S.player.battery}/${S.player.batMax}`, 'ok');
     SFX.battery();
+    renderAll();
+    return;
+  }
+  if (item.type === 'equipment') {
+    if (item.eqType === 'passive') {
+      addLog(`📡 ${item.name} — пассивный, активируется автоматически.`, 'info');
+      renderLog(); return;
+    }
+    // Consumables — use and remove
+    const id = item.id;
+    if (id === 'BM-01') { // Двойная ставка
+      S.player.doubleBet = true;
+      S.player.inventory.splice(slotIdx, 1);
+      addLog(`🎲 Двойная ставка: следующий ресурс ×2, следующий штраф ×2 HP`, 'trigger');
+    } else if (id === 'BM-05') { // Фальшивый след
+      S.player.fakeTail = true;
+      S.player.inventory.splice(slotIdx, 1);
+      addLog(`🃏 Фальшивый след: следующий штраф → –5 ОИ вместо HP`, 'trigger');
+    } else if (id === 'I-05') { // Архивная метка
+      S.player.archiveMark = true;
+      S.player.inventory.splice(slotIdx, 1);
+      addLog(`📌 Архивная метка: следующий эфемер добавит +3 строки в Энциклопедию`, 'trigger');
+    } else if (id === 'BM-04') { // Инсайдер
+      const nextCfg = ROOM_CONFIGS[currentRoomIdx + 1];
+      if (nextCfg && !nextCfg.isBoss && nextCfg.ephConfig) {
+        const info = nextCfg.ephConfig.map(e => `${e.count} ${e.type}`).join(', ');
+        addLog(`🕵 Инсайдер: следующая комната — ${info}`, 'trigger');
+      } else {
+        addLog(`🕵 Инсайдер: следующая локация — босс или нет данных`, 'trigger');
+      }
+      S.player.inventory.splice(slotIdx, 1);
+    } else if (id === 'H-03') { // Анестезия — заморозить таймеры
+      S.ephemers.forEach(e => {
+        if (e.type === 'red' && e.aggrActive) e.aggrTimer += 5;
+        if (e.type === 'blue' && e.fearActive) e.fearTimer += 5;
+      });
+      S.player.inventory.splice(slotIdx, 1);
+      addLog(`💊 Анестезия: таймеры всех эфемеров +5 ходов`, 'ok');
+    } else {
+      addLog(`🔧 ${item.name}: эффект в разработке (${item.desc})`, 'info');
+    }
     renderAll();
   }
 }
@@ -2256,6 +2367,81 @@ function renderOverlay() {
     btn.style.background = 'var(--teal)';
     btn.style.color = 'var(--bg)';
   }
+}
+
+// ─── EQUIPMENT SHOP ───────────────────────────────────────────────
+function switchOrgTab(orgKey, tab, btn) {
+  const std  = document.getElementById(`${orgKey}-standard`);
+  const equip = document.getElementById(`${orgKey}-equipment`);
+  if (!std || !equip) return;
+  std.classList.toggle('hidden',  tab !== 'standard');
+  equip.classList.toggle('hidden', tab !== 'equipment');
+  btn.closest('.org-panel').querySelectorAll('.org-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (tab === 'equipment') renderEquipPanel(orgKey, equip);
+}
+
+function renderEquipPanel(orgKey, container) {
+  const db  = EQUIPMENT_DB[orgKey];
+  const unlocked = unlockedEquipCount();
+  const nextThresh = EQUIP_UNLOCK_THRESHOLDS[unlocked] ?? null;
+  let html = '';
+
+  // Standard items for this org (e.g. I-05, BM-04)
+  (db.standard || []).forEach(item => {
+    const canBuy = RUN.inventory.length < RUN.inventorySlots && RUN.res.money >= item.price;
+    html += `<div class="shop-item equip-item">
+      <span class="item-badge equip-badge">${EQUIP_TYPE_LABEL[item.type]?.charAt(0) ?? '◈'}</span>
+      <div class="item-name">${item.id} ${item.name}</div>
+      <div class="item-desc">${item.desc}</div>
+      <div class="item-cost">${item.price} 💰</div>
+      <button class="btn-equip-buy" onclick="shopEquipBuy('${orgKey}','${item.id}')" ${canBuy?'':'disabled'}>Купить</button>
+    </div>`;
+  });
+
+  // Locked items
+  db.locked.forEach((item, idx) => {
+    const isUnlocked = idx < unlocked;
+    const canBuy = isUnlocked && RUN.inventory.length < RUN.inventorySlots && RUN.res.money >= item.price;
+    if (isUnlocked) {
+      html += `<div class="shop-item equip-item">
+        <span class="item-badge equip-type">${EQUIP_TYPE_LABEL[item.type] ?? item.type}</span>
+        <div class="item-name">${item.id} ${item.name}</div>
+        <div class="item-desc">${item.desc}</div>
+        <div class="item-cost">${item.price} 💰</div>
+        <button class="btn-equip-buy" onclick="shopEquipBuy('${orgKey}','${item.id}')" ${canBuy?'':'disabled'}>Купить</button>
+      </div>`;
+    } else {
+      const need = EQUIP_UNLOCK_THRESHOLDS[idx] ?? '?';
+      html += `<div class="shop-item equip-item equip-locked">
+        <span class="item-badge">🔒</span>
+        <div class="item-name">${item.id} ${item.name}</div>
+        <div class="item-desc">${item.desc}</div>
+        <div class="item-cost" style="color:var(--red)">Продай ${need} КЖ (сейчас: ${totalPearlsSold})</div>
+      </div>`;
+    }
+  });
+
+  if (nextThresh !== null)
+    html += `<div class="equip-unlock-hint">До следующего разблокирования: ${nextThresh - totalPearlsSold} КЖ</div>`;
+  container.innerHTML = html;
+}
+
+function shopEquipBuy(orgKey, itemId) {
+  const db  = EQUIPMENT_DB[orgKey];
+  const item = [...(db.standard || []), ...db.locked].find(i => i.id === itemId);
+  if (!item) return;
+  if (RUN.inventory.length >= RUN.inventorySlots) { shopMsg = '❌ Нет свободных слотов'; renderShopOverlay(); return; }
+  if (RUN.res.money < item.price) { shopMsg = `❌ Нужно ${item.price} монет`; renderShopOverlay(); return; }
+  RUN.res.money -= item.price;
+  RUN.inventory.push({ type: 'equipment', id: item.id, name: item.name, eqType: item.type, desc: item.desc });
+  // Passive H-05 Стимулятор: mark flag on purchase
+  if (item.id === 'H-05') RUN.stimulatorActive = true;
+  shopMsg = `✅ ${item.name} куплен (слот ${RUN.inventory.length})`;
+  renderShopOverlay();
+  // Re-render equipment panel after purchase
+  const panel = document.getElementById(`${orgKey}-equipment`);
+  if (panel && !panel.classList.contains('hidden')) renderEquipPanel(orgKey, panel);
 }
 
 function renderShopOverlay() {
