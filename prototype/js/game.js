@@ -1606,6 +1606,8 @@ let shopMsg = '';
 function showShopOverlay(nextRoomIdx) {
   shopNextRoomIdx = nextRoomIdx;
   shopMsg = '';
+  document.getElementById('shop-confirm')?.classList.add('hidden');
+  document.getElementById('btn-shop-continue')?.classList.remove('hidden');
   const isBeforeBoss = ROOM_CONFIGS[nextRoomIdx]?.isBoss;
   document.getElementById('shop-subtitle').textContent =
     isBeforeBoss ? '⚡ Последний шанс перед Боссом!' : `Перед ${ROOM_CONFIGS[nextRoomIdx]?.label}`;
@@ -2633,7 +2635,27 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-exit-room').addEventListener('click', exitRoom);
   // btn-warp is rendered dynamically inside boss-bar with onclick="useWarp()"
   document.getElementById('btn-shop-continue').addEventListener('click', () => {
+    const warnings = [];
+    if (RUN.battery === 0) warnings.push('0 энергии — Эхолуч недоступен');
+    const wounds = RUN.hpMax - RUN.hp;
+    if (wounds > 0) warnings.push(`${wounds} незалеченных ран`);
+    if (warnings.length) {
+      const el = document.getElementById('shop-confirm-text');
+      el.innerHTML = `Вы уверены, что готовы вернуться в мир Эфира?<br><span class="confirm-warn">${warnings.join(' · ')}</span>`;
+      document.getElementById('shop-confirm').classList.remove('hidden');
+      document.getElementById('btn-shop-continue').classList.add('hidden');
+    } else {
+      startRoom(shopNextRoomIdx);
+    }
+  });
+  document.getElementById('btn-confirm-yes').addEventListener('click', () => {
+    document.getElementById('shop-confirm').classList.add('hidden');
+    document.getElementById('btn-shop-continue').classList.remove('hidden');
     startRoom(shopNextRoomIdx);
+  });
+  document.getElementById('btn-confirm-no').addEventListener('click', () => {
+    document.getElementById('shop-confirm').classList.add('hidden');
+    document.getElementById('btn-shop-continue').classList.remove('hidden');
   });
   document.querySelectorAll('.btn-shop').forEach(btn => {
     btn.addEventListener('click', () => shopAction(btn.dataset.action));

@@ -617,6 +617,39 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
 }
 .btn-shop:hover { border-color: var(--teal); color: var(--teal); background: rgba(78,205,196,.08); }
 
+#shop-confirm {
+  border: 1px solid rgba(231,76,60,.4);
+  background: rgba(231,76,60,.06);
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  text-align: center;
+}
+#shop-confirm-text {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+.confirm-warn {
+  color: #e74c3c;
+  font-size: 13px;
+  letter-spacing: .5px;
+}
+#shop-confirm-btns { display: flex; gap: 10px; justify-content: center; }
+#btn-confirm-yes {
+  background: rgba(231,76,60,.2); border: 1px solid rgba(231,76,60,.6);
+  color: #ffaaaa; font-family: inherit; font-size: 13px; letter-spacing: 1px;
+  padding: 6px 20px; border-radius: 4px; cursor: pointer;
+}
+#btn-confirm-yes:hover { background: rgba(231,76,60,.4); }
+#btn-confirm-no {
+  background: rgba(78,205,196,.1); border: 1px solid rgba(78,205,196,.4);
+  color: var(--teal); font-family: inherit; font-size: 13px; letter-spacing: 1px;
+  padding: 6px 20px; border-radius: 4px; cursor: pointer;
+}
+#btn-confirm-no:hover { background: rgba(78,205,196,.2); }
+
 #btn-shop-continue {
   display: block;
   width: 100%;
