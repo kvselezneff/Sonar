@@ -1852,6 +1852,20 @@ function renderToolCards() {
     'card-slot' + (S.tool === 'echobeamer' ? ' sel-echobeamer' : '') +
     (blocked === 1 ? ' slot-blocked' : '');
 
+  // Update echobeam cost display: free beams show =0э
+  const free = S.player?.freeEchobeams ?? 0;
+  const echoCard = document.getElementById('card-1');
+  const costEl = echoCard?.querySelector('.card-cost');
+  if (costEl) {
+    if (free > 0) {
+      costEl.textContent = `=0э (×${free})`;
+      costEl.style.color = '#4ecdc4';
+    } else {
+      costEl.textContent = `–${ECHO_COST}э`;
+      costEl.style.color = '';
+    }
+  }
+
   const maxSlots = S.player.inventorySlots || 2;
   for (let i = 0; i < 6; i++) {
     const slotEl = document.getElementById(`card-${i + 2}`);
