@@ -215,8 +215,11 @@
       <!-- Hospital -->
       <div class="org-panel" id="org-hospital">
         <div class="org-title">🏥 ГОСПИТАЛЬ</div>
-        <div class="org-desc">Восстановление и расширение HP</div>
-        <div class="shop-items">
+        <div class="org-tabs">
+          <button class="org-tab active" onclick="switchOrgTab('hospital','standard',this)">Стандарт</button>
+          <button class="org-tab" onclick="switchOrgTab('hospital','equipment',this)">⚙ Оборудование</button>
+        </div>
+        <div class="shop-items" id="hospital-standard">
           <div class="shop-item">
             <span class="item-badge" style="color:#e74c3c">♥</span>
             <div class="item-name">Лечение +1 HP</div>
@@ -242,13 +245,17 @@
             <button class="btn-shop" data-action="buy-slot">Купить</button>
           </div>
         </div>
+        <div class="shop-items hidden" id="hospital-equipment"></div>
       </div>
 
       <!-- Institute -->
       <div class="org-panel" id="org-institute">
         <div class="org-title">🔬 ИНСТИТУТ</div>
-        <div class="org-desc">Исследования и батарея</div>
-        <div class="shop-items">
+        <div class="org-tabs">
+          <button class="org-tab active" onclick="switchOrgTab('institute','standard',this)">Стандарт</button>
+          <button class="org-tab" onclick="switchOrgTab('institute','equipment',this)">⚙ Оборудование</button>
+        </div>
+        <div class="shop-items" id="institute-standard">
           <div class="shop-item">
             <span class="item-badge">⚡</span>
             <div class="item-name">Батарея +1 лимит</div>
@@ -261,14 +268,24 @@
             <div class="item-cost">20 ОИ</div>
             <button class="btn-shop" data-action="battery-charge">Купить</button>
           </div>
+          <div class="shop-item">
+            <span class="item-badge">🛡</span>
+            <div class="item-name">Резонансный щит (2 удара)</div>
+            <div class="item-cost">40 💰 монет</div>
+            <button class="btn-shop" data-action="buy-shield">Купить</button>
+          </div>
         </div>
+        <div class="shop-items hidden" id="institute-equipment"></div>
       </div>
 
       <!-- Black Market -->
       <div class="org-panel" id="org-market">
         <div class="org-title">💼 ЧЁРНЫЙ РЫНОК</div>
-        <div class="org-desc">Торговля и расходники</div>
-        <div class="shop-items">
+        <div class="org-tabs">
+          <button class="org-tab active" onclick="switchOrgTab('market','standard',this)">Стандарт</button>
+          <button class="org-tab" onclick="switchOrgTab('market','equipment',this)">⚙ Оборудование</button>
+        </div>
+        <div class="shop-items" id="market-standard">
           <div class="shop-item">
             <span class="item-badge">💰</span>
             <div class="item-name">Продать эссенцию</div>
@@ -289,17 +306,12 @@
           </div>
           <div class="shop-item">
             <span class="item-badge">◈</span>
-            <div class="item-name">Резонансный щит (2 удара)</div>
-            <div class="item-cost">40 💰 монет</div>
-            <button class="btn-shop" data-action="buy-shield">Купить</button>
-          </div>
-          <div class="shop-item">
-            <span class="item-badge">◈</span>
             <div class="item-name">Повербанк (+4э)</div>
             <div class="item-cost">50 💰 монет</div>
             <button class="btn-shop" data-action="buy-powerbank">Купить</button>
           </div>
         </div>
+        <div class="shop-items hidden" id="market-equipment"></div>
       </div>
 
     </div><!-- /shop-panels -->
