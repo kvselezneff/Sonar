@@ -401,6 +401,13 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
 .boss-stat { display: flex; gap: 5px; align-items: center; }
 .boss-val  { font-size: 21px; font-weight: bold; color: var(--text); }
 .boss-unit { color: var(--dim); font-size: 14px; }
+.boss-warp-btn {
+  margin-left: auto;
+  background: rgba(155,89,182,.2); border: 1px solid rgba(155,89,182,.6);
+  color: #c8a0e0; font-family: inherit; font-size: 13px; letter-spacing: 1px;
+  padding: 4px 14px; border-radius: 4px; cursor: pointer; transition: all .15s;
+}
+.boss-warp-btn:hover { background: rgba(155,89,182,.4); border-color: #9b59b6; color: #e0c0ff; }
 
 /* ─── HOSTILE CELLS ──────────────────────────────── */
 @keyframes drone-hint-pulse { 0%,100%{box-shadow:0 0 4px 1px rgba(78,205,196,.3);border-color:rgba(78,205,196,.5)} 50%{box-shadow:0 0 10px 3px rgba(78,205,196,.8);border-color:#4ecdc4} }

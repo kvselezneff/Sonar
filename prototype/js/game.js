@@ -1866,13 +1866,6 @@ function renderGrid() {
   exitBtn.style.opacity  = bossLocked ? '0.35' : '1';
   exitBtn.style.cursor   = bossLocked ? 'not-allowed' : 'pointer';
 
-  // Warp button: visible only in boss rooms when warpEssence > 0 and snapshot ready
-  const warpBtn = document.getElementById('btn-warp');
-  if (warpBtn) {
-    const showWarp = cfg.isBoss && S.player.res.warpEssence > 0 && S.warpSnapshot !== null;
-    warpBtn.classList.toggle('hidden', !showWarp);
-    if (showWarp) warpBtn.textContent = `💜 ВАРП (${S.player.res.warpEssence})`;
-  }
 }
 
 function renderToolCards() {
@@ -2283,6 +2276,11 @@ function renderBossBar() {
     `;
   }
 
+  const showWarp = S.player.res.warpEssence > 0 && S.warpSnapshot !== null;
+  if (showWarp) {
+    html += `<button id="btn-warp" onclick="useWarp()" class="boss-warp-btn">💜 ВАРП (${S.player.res.warpEssence})</button>`;
+  }
+
   bar.innerHTML = html;
 }
 
@@ -2633,7 +2631,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('btn-overlay-action').addEventListener('click', onOverlayBtn);
   document.getElementById('btn-exit-room').addEventListener('click', exitRoom);
-  document.getElementById('btn-warp').addEventListener('click', useWarp);
+  // btn-warp is rendered dynamically inside boss-bar with onclick="useWarp()"
   document.getElementById('btn-shop-continue').addEventListener('click', () => {
     startRoom(shopNextRoomIdx);
   });
