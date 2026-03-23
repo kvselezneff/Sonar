@@ -688,6 +688,7 @@ function tickRedAggression() {
       eph.aggrTimer = RED_AGGR_INTERVAL;
       const nm = eph.discovered ? eph.name : 'Красный эфемер';
       addLog(`🔴 ${nm} АТАКУЕТ! –1 HP!`, 'err');
+      S.stats.dmgEphemeral++;
       takeDamage(1);
       SFX.red();
     }
