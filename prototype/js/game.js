@@ -360,9 +360,11 @@ function initRun() {
     res:         { green: 0, yellow: 0, pearl: 0, money: 0, oi: 0, warpEssence: 0 },
     inventory:         [],
     inventorySlots:    2,
-    freeEchobeams:     0,
-    nextTriggerDouble: false,
-    colorMembranes:    assignColorMembranes(),
+    freeEchobeams:      0,
+    nextTriggerDouble:  false,
+    memoryPreviewColor: null,
+    membraneShield:     false,
+    colorMembranes:     assignColorMembranes(),
     colorCounts: { green: 0, yellow: 0, red: 0, blue: 0, purple: 0 },
     shapeCounts: {},
     stats: {
@@ -406,8 +408,9 @@ function startRoom(roomIdx) {
       comboNums:   RUN.comboNums,
       inventory:         [...RUN.inventory],
       inventorySlots:    RUN.inventorySlots,
-      freeEchobeams:     RUN.freeEchobeams,
-      nextTriggerDouble: RUN.nextTriggerDouble,
+      freeEchobeams:      RUN.freeEchobeams,
+      nextTriggerDouble:  RUN.nextTriggerDouble,
+      membraneShield:     RUN.membraneShield,
       colorCounts: { ...RUN.colorCounts },
       shapeCounts: { ...RUN.shapeCounts },
     },
@@ -434,7 +437,16 @@ function startRoom(roomIdx) {
     },
   };
   if (cfg.isBoss) placeBoss(cfg.bossIdx);
-  else            placeEphemers(cfg.ephConfig);
+  else {
+    placeEphemers(cfg.ephConfig);
+    // M-09 Память: first ephemer of memorized color is pre-discovered
+    if (RUN.memoryPreviewColor) {
+      const preview = S.ephemers.find(e => e.type === RUN.memoryPreviewColor);
+      if (preview) { preview.discovered = true; }
+      addLog(`◈ Память: форма ${RUN.memoryPreviewColor} эфемера известна!`, 'trigger');
+      RUN.memoryPreviewColor = null;
+    }
+  }
   // Full battery warning at room start
   if (S.player.battery >= S.player.batMax) {
     addLog(`⚠ Батарея полна — Эхолучи недоступны, пока не потратишь энергию!`, 'warn');
@@ -462,8 +474,9 @@ function saveRoomToRun() {
   RUN.res         = { ...S.player.res };
   RUN.inventory         = [...S.player.inventory];
   RUN.inventorySlots    = S.player.inventorySlots;
-  RUN.freeEchobeams     = S.player.freeEchobeams;
-  RUN.nextTriggerDouble = S.player.nextTriggerDouble;
+  RUN.freeEchobeams      = S.player.freeEchobeams;
+  RUN.nextTriggerDouble  = S.player.nextTriggerDouble;
+  RUN.membraneShield     = S.player.membraneShield;
   RUN.colorCounts = { ...S.player.colorCounts };
   RUN.shapeCounts = { ...S.player.shapeCounts };
 
@@ -1011,19 +1024,24 @@ function floodFill(sx, sy) {
 
 // ── ECHOBEAMER ──
 function doEchobeamer(c) {
-  if (S.player.battery < ECHO_COST) {
+  const isFree = S.player.freeEchobeams > 0;
+  if (!isFree && S.player.battery < ECHO_COST) {
     addLog(`❌ Нет энергии для Эхолуча (нужно ${ECHO_COST}э).`, 'warn');
     return false;
   }
+  if (isFree) {
+    S.player.freeEchobeams--;
+    addLog(`⊕ Бесплатный Эхолуч (осталось: ${S.player.freeEchobeams})`, 'ok');
+  }
   if (c.eIdx === -1) {
-    addEnergy(-ECHO_COST, false);
+    if (!isFree) addEnergy(-ECHO_COST, false);
     c.state = c.resNum === 0 ? 'empty' : 'number'; c.vis = true;
     addLog(`🔊 Эхолуч на пустую. –${ECHO_COST}э. Впустую.`, 'warn');
     return true;
   }
   const eph = S.ephemers[c.eIdx];
   eph.discovered = true;
-  addEnergy(-ECHO_COST, false);
+  if (!isFree) addEnergy(-ECHO_COST, false);
   c.state = 'scanned'; c.vis = true;
   eph.scanned++;
 
@@ -1162,10 +1180,7 @@ function doEchobeamer(c) {
     const revealed = eph.scanned + eph.opened;
     if (revealed === eph.segs.length) {
       eph.triggered = true;
-      addEnergy(2, false);
-      addOI(3);
-      S.player.res.money += 10;
-      addLog(`🎯 MEMBRANE TRIGGER! +2э +3 ОИ +10м!`, 'trigger');
+      applyMembraneTrigger(eph, c);
     }
   }
   checkEphDone(eph);
@@ -1274,7 +1289,143 @@ function addEnergy(delta, overflow) {
   }
 }
 
+// ─── MEMBRANE TRIGGER ─────────────────────────────────────────────
+// Base reward: +10м. Then type-specific effect from M-01..M-12.
+function applyMembraneTrigger(eph, memCell) {
+  const mType = eph.memType;
+  const def   = MEMBRANE_DEFS[mType];
+  S.player.res.money += 10;   // base reward for all membranes
+  const mName = def ? `${def.symbol} ${def.name}` : 'Мембрана';
+  addLog(`🎯 МЕМБРАНА СРАБОТАЛА! ${mName} +10м`, 'trigger');
+  SFX.victory();
+
+  if (mType === 'M-01') {
+    // +3э; при переполнении → +1 лимит батареи
+    if (S.player.battery + 3 > S.player.batMax) {
+      S.player.batMax++;
+      S.player.battery = Math.min(S.player.battery + 3, S.player.batMax);
+      addLog(`Ψ Пульс: +1 лимит батареи! (${S.player.batMax})`, 'trigger');
+    } else {
+      addEnergy(3, false);
+      addLog(`Ψ Пульс: +3э. Батарея: ${S.player.battery}/${S.player.batMax}`, 'trigger');
+    }
+
+  } else if (mType === 'M-02') {
+    // Волна: раскрыть строку мембраны
+    const row = memCell.y;
+    let revealed = 0;
+    for (let x = 0; x < S.gridW; x++) {
+      const nc = cell(x, row);
+      if (nc && !nc.vis) { explodeReveal(nc); revealed++; }
+    }
+    addLog(`≋ Волна: раскрыта строка ${row + 1} (${revealed} клеток)`, 'trigger');
+
+  } else if (mType === 'M-03') {
+    // Сонар: раскрыть все числовые клетки
+    let revealed = 0;
+    for (let y = 0; y < S.gridH; y++)
+      for (let x = 0; x < S.gridW; x++) {
+        const nc = cell(x, y);
+        if (nc && !nc.vis && nc.eIdx === -1 && nc.resNum > 0) {
+          nc.state = 'number'; nc.vis = true; revealed++;
+        }
+      }
+    addLog(`◎ Сонар: ${revealed} числовых клеток раскрыто`, 'trigger');
+
+  } else if (mType === 'M-04') {
+    // Усиление: следующие 3 Эхолуча бесплатны
+    S.player.freeEchobeams = (S.player.freeEchobeams || 0) + 3;
+    addLog(`⊕ Усиление: следующие ${S.player.freeEchobeams} Эхолуча — бесплатно!`, 'trigger');
+
+  } else if (mType === 'M-05') {
+    // Исследование: +3 ОИ
+    addOI(3);
+    addLog(`✦ Исследование: +3 ОИ`, 'trigger');
+
+  } else if (mType === 'M-06') {
+    // Щит: следующий штраф отменён
+    if (S.player.inventory.length < S.player.inventorySlots) {
+      S.player.inventory.push({ type: 'shield', hp: 1 });
+      addLog(`△ Щит: добавлен в инвентарь (1 удар)`, 'trigger');
+    } else {
+      addLog(`△ Щит: нет места в инвентаре — следующий штраф всё равно отменён`, 'trigger');
+      S.player.membraneShield = true;
+    }
+
+  } else if (mType === 'M-07') {
+    // Эхолот: раскрыть 3 клетки с макс. числами
+    const numCells = [];
+    for (let y = 0; y < S.gridH; y++)
+      for (let x = 0; x < S.gridW; x++) {
+        const nc = cell(x, y);
+        if (nc && !nc.vis && nc.eIdx === -1 && nc.resNum > 0) numCells.push(nc);
+      }
+    numCells.sort((a, b) => b.resNum - a.resNum).slice(0, 3).forEach(nc => {
+      nc.state = 'number'; nc.vis = true;
+    });
+    addLog(`⊙ Эхолот: 3 клетки с макс. числами раскрыты`, 'trigger');
+
+  } else if (mType === 'M-08') {
+    // Взрыв: раскрытие 3×3 + 2э
+    addEnergy(2, false);
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const nc = cell(memCell.x + dx, memCell.y + dy);
+        if (nc && !nc.vis) explodeReveal(nc);
+      }
+    addLog(`✸ Взрыв: 3×3 раскрыто + 2э`, 'trigger');
+
+  } else if (mType === 'M-09') {
+    // Память: следующий Эфемер того же цвета — форма видна
+    RUN.memoryPreviewColor = eph.type;
+    addLog(`◈ Память: следующий ${eph.type} эфемер — форма известна заранее`, 'trigger');
+
+  } else if (mType === 'M-10') {
+    // Резонанс: следующий триггер срабатывает дважды
+    S.player.nextTriggerDouble = true;
+    addLog(`∞ Резонанс: следующая мембрана сработает дважды!`, 'trigger');
+
+  } else if (mType === 'M-11') {
+    // Прозрение: 2 случайных эфемера → в Энциклопедию
+    const unknowns = S.ephemers.filter(e => e.type !== 'boss' && !encyclopedia.has(e.name));
+    unknowns.sort(() => Math.random() - 0.5).slice(0, 2).forEach(e => {
+      encyclopedia.add(e.name);
+      e.discovered = true;
+    });
+    addLog(`◇ Прозрение: ${Math.min(2, unknowns.length)} эфемера добавлено в Энциклопедию`, 'trigger');
+
+  } else if (mType === 'M-12') {
+    // Регенерация: +1 HP; при макс. HP → +1 лимит HP
+    if (S.player.hp >= S.player.hpMax) {
+      S.player.hpMax++;
+      S.player.hp++;
+      addLog(`♥ Регенерация: +1 лимит HP! (${S.player.hp}/${S.player.hpMax})`, 'trigger');
+    } else {
+      S.player.hp++;
+      addLog(`♥ Регенерация: +1 HP (${S.player.hp}/${S.player.hpMax})`, 'trigger');
+    }
+
+  } else {
+    // Неизвестный тип — базовый эффект
+    addEnergy(2, false);
+    addOI(3);
+    addLog(`◆ Мембрана: +2э +3 ОИ`, 'trigger');
+  }
+
+  // M-10 Резонанс — повторить эффект
+  if (S.player.nextTriggerDouble && mType !== 'M-10') {
+    S.player.nextTriggerDouble = false;
+    addLog(`∞ РЕЗОНАНС: эффект повторяется!`, 'trigger');
+    applyMembraneTrigger(eph, memCell);
+  }
+}
+
 function takeDamage(n) {
+  if (S.player.membraneShield) {
+    S.player.membraneShield = false;
+    addLog(`△ Щит мембраны поглотил удар!`, 'ok');
+    return;
+  }
   const shieldIdx = S.player.inventory.findIndex(i => i.type === 'shield');
   if (shieldIdx !== -1) {
     const shield = S.player.inventory[shieldIdx];
