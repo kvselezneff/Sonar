@@ -49,7 +49,7 @@ const EQUIPMENT_DB = {
   hospital: {
     // Always visible, no КЖ required
     standard: [
-      { id: 'H-03', name: 'Анестезия',      type: 'consumable',price: 60,  desc: 'Все таймеры эфемеров +5 ходов' },
+      { id: 'H-03', name: 'Заморозка',       type: 'consumable',price: 60,  desc: 'Все таймеры эфемеров +5 ходов' },
     ],
     // Unlocked one by one for КЖ (random order)
     pool: [
@@ -61,7 +61,7 @@ const EQUIPMENT_DB = {
   },
   institute: {
     standard: [
-      { id: 'I-05', name: 'Архивная метка', type: 'consumable',price: 50,  desc: '+3 строки Энц. для следующего эфемера' },
+      { id: 'I-05', name: 'Архивный запрос', type: 'consumable',price: 50,  desc: 'Открывает описание 2 неизвестных эфемеров' },
     ],
     pool: [
       { id: 'I-01', name: 'Датчик слежения',type: 'passive',   price: 65,  desc: '+1 ОИ каждые 5 ходов. Побег → +5 ОИ.' },
@@ -73,7 +73,7 @@ const EQUIPMENT_DB = {
   },
   market: {
     standard: [
-      { id: 'BM-04', name: 'Инсайдер',      type: 'consumable',price: 35,  desc: 'Цвета и кол-во эфемеров следующей комнаты' },
+      { id: 'BM-04', name: 'Дрон-Разведчик', type: 'consumable',price: 35,  desc: 'Подсвечивает 1–3 сегмента нетронутого эфемера' },
     ],
     pool: [
       { id: 'BM-01', name: 'Двойная ставка',type: 'consumable',price: 55,  desc: 'Следующий ресурс ×2, след. штраф ×2 (–2 HP)' },
@@ -1784,6 +1784,8 @@ function renderGrid() {
         if (c.isHostile) {
           el.classList.add('cell-hostile');
           el.textContent = '☠';
+        } else if (c.droneHint) {
+          el.classList.add('cell-drone-hint');
         } else if (nb8(x, y).some(n => n.isHostile)) {
           el.classList.add('cell-hostile-neighbor');
         }
@@ -1877,7 +1879,10 @@ function renderToolCards() {
       continue;
     }
     const item  = S.player.inventory[i];
-    const isBlk = blocked === (i + 2);
+    // Drone: block slot if no untouched ephemers in room
+    const isDroneBlocked = item?.id === 'BM-04' &&
+      !S.ephemers.some(e => !e.done && e.scanned === 0 && e.opened === 0);
+    const isBlk = blocked === (i + 2) || isDroneBlocked;
     if (!item) {
       slotEl.className = 'card-slot empty' + (isBlk ? ' slot-blocked' : '');
       slotEl.innerHTML = `<div class="card-inner empty-inner"><div class="empty-plus">+</div><div class="empty-label">слот</div></div>`;
@@ -1970,26 +1975,45 @@ function useInventorySlot(slotIdx) {
       S.player.fakeTail = true;
       S.player.inventory.splice(slotIdx, 1);
       addLog(`🃏 Фальшивый след: следующий штраф → –5 ОИ вместо HP`, 'trigger');
-    } else if (id === 'I-05') { // Архивная метка
-      S.player.archiveMark = true;
-      S.player.inventory.splice(slotIdx, 1);
-      addLog(`📌 Архивная метка: следующий эфемер добавит +3 строки в Энциклопедию`, 'trigger');
-    } else if (id === 'BM-04') { // Инсайдер
-      const nextCfg = ROOM_CONFIGS[currentRoomIdx + 1];
-      if (nextCfg && !nextCfg.isBoss && nextCfg.ephConfig) {
-        const info = nextCfg.ephConfig.map(e => `${e.count} ${e.type}`).join(', ');
-        addLog(`🕵 Инсайдер: следующая комната — ${info}`, 'trigger');
-      } else {
-        addLog(`🕵 Инсайдер: следующая локация — босс или нет данных`, 'trigger');
+    } else if (id === 'I-05') { // Архивный запрос
+      const unknown = S.ephemers.filter(e => !e.discovered && !e.done);
+      if (unknown.length < 2) {
+        addLog(`📂 Архивный запрос: нужно ≥2 неизвестных эфемера (сейчас: ${unknown.length})`, 'warn');
+        renderLog(); return;
       }
+      // Reveal up to 2 random unknown ephemers
+      const targets = unknown.sort(() => Math.random() - 0.5).slice(0, 2);
+      targets.forEach(e => {
+        e.discovered = true;
+        encyclopedia.add(e.name);
+      });
       S.player.inventory.splice(slotIdx, 1);
+      addLog(`📂 Архивный запрос: раскрыты ${targets.map(e => e.name).join(', ')}`, 'trigger');
+      SFX.victory();
+    } else if (id === 'BM-04') { // Дрон-Разведчик
+      const targets = S.ephemers.filter(e => !e.done && e.scanned === 0 && e.opened === 0);
+      if (!targets.length) {
+        addLog(`🤖 Дрон: нет нетронутых эфемеров для разведки`, 'warn');
+        renderLog(); return;
+      }
+      const eph = targets[Math.floor(Math.random() * targets.length)];
+      const hiddenSegs = eph.segs.filter(s => {
+        const c = cell(s.x, s.y);
+        return c && !c.vis;
+      });
+      const count = Math.min(hiddenSegs.length, 1 + Math.floor(Math.random() * 3));
+      const picked = hiddenSegs.sort(() => Math.random() - 0.5).slice(0, count);
+      picked.forEach(s => { const c = cell(s.x, s.y); if (c) c.droneHint = true; });
+      S.player.inventory.splice(slotIdx, 1);
+      const colorName = eph.discovered ? eph.name : `${eph.type}-эфемер`;
+      addLog(`🤖 Дрон: подсвечено ${count} сегм. [${colorName}]`, 'trigger');
     } else if (id === 'H-03') { // Анестезия — заморозить таймеры
       S.ephemers.forEach(e => {
         if (e.type === 'red' && e.aggrActive) e.aggrTimer += 5;
         if (e.type === 'blue' && e.fearActive) e.fearTimer += 5;
       });
       S.player.inventory.splice(slotIdx, 1);
-      addLog(`💊 Анестезия: таймеры всех эфемеров +5 ходов`, 'ok');
+      addLog(`❄ Заморозка: таймеры всех эфемеров +5 ходов`, 'ok');
     } else {
       addLog(`🔧 ${item.name}: эффект в разработке (${item.desc})`, 'info');
     }

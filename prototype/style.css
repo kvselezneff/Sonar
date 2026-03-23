@@ -393,6 +393,12 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
 .boss-unit { color: var(--dim); font-size: 14px; }
 
 /* ─── HOSTILE CELLS ──────────────────────────────── */
+@keyframes drone-hint-pulse { 0%,100%{box-shadow:0 0 4px 1px rgba(78,205,196,.3);border-color:rgba(78,205,196,.5)} 50%{box-shadow:0 0 10px 3px rgba(78,205,196,.8);border-color:#4ecdc4} }
+.cell-drone-hint {
+  border-color: rgba(78,205,196,.5) !important;
+  background: rgba(78,205,196,.07) !important;
+  animation: drone-hint-pulse 1.2s ease-in-out infinite;
+}
 @keyframes hostile-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(231,76,60,0)} 50%{box-shadow:0 0 10px 3px rgba(231,76,60,.7)} }
 .cell-hostile {
   border-color: rgba(231,76,60,.9) !important;
