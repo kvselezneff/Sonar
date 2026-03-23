@@ -106,7 +106,17 @@ body {
 #center-col { flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; }
 
 /* ─── GRID ───────────────────────────────────────── */
-#grid-wrap { position: relative; }
+#grid-wrap { position: relative; border-radius: 4px; }
+@keyframes freeze-snow {
+  0%   { box-shadow: 0 0 0 3px rgba(160,220,255,.35), 0 0 18px 4px rgba(100,180,255,.15); border-color: rgba(140,210,255,.4); }
+  50%  { box-shadow: 0 0 0 4px rgba(200,240,255,.7),  0 0 28px 8px rgba(140,210,255,.3);  border-color: rgba(200,240,255,.85); }
+  100% { box-shadow: 0 0 0 3px rgba(160,220,255,.35), 0 0 18px 4px rgba(100,180,255,.15); border-color: rgba(140,210,255,.4); }
+}
+#grid-wrap.freeze-active {
+  border: 2px solid rgba(140,210,255,.5);
+  animation: freeze-snow 1.8s ease-in-out infinite;
+  border-radius: 4px;
+}
 #grid {
   display: grid;
   grid-template-columns: repeat(10, 46px); /* overridden by JS for boss room */

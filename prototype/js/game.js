@@ -442,6 +442,8 @@ function startRoom(roomIdx) {
     emiBlockedSlot:  null,
     newEmptyCells:   new Set(),
     invertActive:    false,
+    freezeActive:    false,
+    freezeTargets:   [],
     warpSnapshot:    null,
     stats: {
       emptyCells:   0,
@@ -780,8 +782,29 @@ function tickBlueEphemers() {
 
 // ─── PURPLE EPHEMER INVERSION ─────────────────────────────────────
 // Active only after Locator hit on a purple ephemer — not on mere presence.
-function tickPurpleInversion() {
+function tickFreeze() {
+  if (!S.freezeActive || !S.freezeTargets.length) return;
+  const allStopped = S.freezeTargets.every(id => {
+    const e = S.ephemers[id];
+    if (!e || e.done) return true;
+    if (e.type === 'red')  return !e.aggrActive || e.aggrTimer <= 0;
+    if (e.type === 'blue') return !e.fearActive  || e.fearTimer  <= 0;
+    return true;
+  });
+  if (allStopped) {
+    S.freezeActive  = false;
+    S.freezeTargets = [];
+    addLog(`❄ Заморозка рассеялась — все таймеры остановлены.`, 'info');
+  }
+}
+
+function tickPurpleInversion(reason) {
+  const was = S.invertActive;
   S.invertActive = S.ephemers.some(e => e.type === 'purple' && !e.done && e.invertTriggered);
+  if (was && !S.invertActive) {
+    addLog(`💜 ИНВЕРСИЯ снята${reason ? ` (${reason})` : ''}.`, 'ok');
+    SFX.purple();
+  }
 }
 
 function triggerEMI() {
@@ -908,6 +931,7 @@ function applyTool(x, y) {
     tickBossPulse();
     tickRedAggression();
     tickBlueEphemers();
+    tickFreeze();
     tickPurpleInversion();
     S.emiBlockedSlot = null;
   }
@@ -998,6 +1022,10 @@ function doLocator(c) {
         addOI(1);
         addLog(`💡 КОМБО-РАЗРЯД! 5 чисел → +1 ОИ`, 'ok');
         SFX.combo();
+        if (S.invertActive) {
+          S.ephemers.forEach(e => { if (e.type === 'purple' && !e.done && e.invertTriggered) e.invertTriggered = false; });
+          addLog(`💡 Комбо-разряд подавил ИНВЕРСИЮ!`, 'trigger');
+        }
       }
     }
   }
@@ -1763,7 +1791,8 @@ function renderBattery() {
 function renderGrid() {
   const cfg = ROOM_CONFIGS[currentRoomIdx];
   const wrap = document.getElementById('grid-wrap');
-  wrap.className = S.tool === 'locator' ? 'tool-locator' : 'tool-echobeamer';
+  wrap.className = (S.tool === 'locator' ? 'tool-locator' : 'tool-echobeamer') +
+    (S.freezeActive ? ' freeze-active' : '');
   const container = document.getElementById('grid');
   container.innerHTML = '';
   const cs = S.cellSize;
@@ -1983,12 +2012,21 @@ function useInventorySlot(slotIdx) {
       }
       // Reveal up to 2 random unknown ephemers
       const targets = unknown.sort(() => Math.random() - 0.5).slice(0, 2);
+      const invertCancelled = [];
       targets.forEach(e => {
         e.discovered = true;
         encyclopedia.add(e.name);
+        if (e.type === 'purple' && e.invertTriggered && !e.done) {
+          e.invertTriggered = false;
+          invertCancelled.push(e.name);
+        }
       });
       S.player.inventory.splice(slotIdx, 1);
       addLog(`📂 Архивный запрос: раскрыты ${targets.map(e => e.name).join(', ')}`, 'trigger');
+      if (invertCancelled.length) {
+        addLog(`📂 Инверсия ${invertCancelled.join(', ')} снята запросом!`, 'trigger');
+      }
+      tickPurpleInversion('архивный запрос');
       SFX.victory();
     } else if (id === 'BM-04') { // Дрон-Разведчик
       const targets = S.ephemers.filter(e => !e.done && e.scanned === 0 && e.opened === 0);
@@ -2007,13 +2045,21 @@ function useInventorySlot(slotIdx) {
       S.player.inventory.splice(slotIdx, 1);
       const colorName = eph.discovered ? eph.name : `${eph.type}-эфемер`;
       addLog(`🤖 Дрон: подсвечено ${count} сегм. [${colorName}]`, 'trigger');
-    } else if (id === 'H-03') { // Анестезия — заморозить таймеры
+    } else if (id === 'H-03') { // Заморозка — заморозить таймеры
+      const frozen = [];
       S.ephemers.forEach(e => {
-        if (e.type === 'red' && e.aggrActive) e.aggrTimer += 5;
-        if (e.type === 'blue' && e.fearActive) e.fearTimer += 5;
+        if (e.type === 'red' && e.aggrActive) { e.aggrTimer += 5; frozen.push(e.id); }
+        if (e.type === 'blue' && e.fearActive) { e.fearTimer += 5; frozen.push(e.id); }
       });
       S.player.inventory.splice(slotIdx, 1);
-      addLog(`❄ Заморозка: таймеры всех эфемеров +5 ходов`, 'ok');
+      if (frozen.length) {
+        // Merge with existing freeze targets (two freezes stack)
+        frozen.forEach(id => { if (!S.freezeTargets.includes(id)) S.freezeTargets.push(id); });
+        S.freezeActive = true;
+        addLog(`❄ Заморозка: таймеры ${frozen.length} эфемеров +5 ходов`, 'ok');
+      } else {
+        addLog(`❄ Заморозка: нет активных таймеров для заморозки`, 'warn');
+      }
     } else {
       addLog(`🔧 ${item.name}: эффект в разработке (${item.desc})`, 'info');
     }
