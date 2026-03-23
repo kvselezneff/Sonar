@@ -1344,7 +1344,9 @@ function applyMembraneTrigger(eph, memCell) {
     let revealed = 0;
     for (let x = 0; x < S.gridW; x++) {
       const nc = cell(x, row);
-      if (nc && !nc.vis) { explodeReveal(nc); revealed++; }
+      if (nc && !nc.vis && nc.eIdx === -1) {
+        nc.state = nc.resNum > 0 ? 'number' : 'empty'; nc.vis = true; revealed++;
+      }
     }
     addLog(`≋ Волна: раскрыта строка ${row + 1} (${revealed} клеток)`, 'trigger');
 
