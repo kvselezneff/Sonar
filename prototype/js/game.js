@@ -1046,9 +1046,36 @@ function doEchobeamer(c) {
       }
       SFX.combo();
     } else {
-      addEnergy(1, false);
-      addLog(`✅ Сегмент Босса. –${ECHO_COST}э. +1э обратно.`, 'ok');
-      SFX.green();
+      // Boss segments: purple mechanic (40% resource / 40% ±HP / 10% warp / 10% nothing)
+      const roll = Math.random();
+      if (roll < 0.4) {
+        const rnd = Math.random();
+        if (rnd < 0.33) {
+          S.player.res.green++;
+          addLog(`✅ Сегмент Босса. +1 эссенция. –${ECHO_COST}э.`, 'ok'); SFX.green();
+        } else if (rnd < 0.66) {
+          S.player.res.yellow++;
+          addLog(`✅ Сегмент Босса. +1 сгусток. –${ECHO_COST}э.`, 'ok'); SFX.yellow();
+        } else {
+          S.player.res.pearl++;
+          addLog(`✅ Сегмент Босса. +1 жемчуг! –${ECHO_COST}э.`, 'ok'); SFX.money();
+        }
+      } else if (roll < 0.8) {
+        if (Math.random() < 0.5) {
+          S.player.hp = Math.min(S.player.hpMax, S.player.hp + 1);
+          addLog(`✅ Сегмент Босса. +1 HP! (${S.player.hp}/${S.player.hpMax}) –${ECHO_COST}э.`, 'ok'); SFX.green();
+        } else {
+          S.stats.dmgEphemeral++;
+          takeDamage(1);
+          addLog(`⚡ Сегмент Босса. –1 HP! (${S.player.hp}/${S.player.hpMax}) –${ECHO_COST}э.`, 'warn'); SFX.red();
+        }
+      } else if (roll < 0.9) {
+        S.player.res.warpEssence++;
+        document.getElementById('res-warp')?.classList.remove('hidden');
+        addLog(`✅ Сегмент Босса. 💜 ВАРП-ЭССЕНЦИЯ! –${ECHO_COST}э.`, 'trigger'); SFX.purple();
+      } else {
+        addLog(`✅ Сегмент Босса. Тишина. –${ECHO_COST}э.`, 'info'); SFX.green();
+      }
     }
   } else if (eph.type === 'green') {
     S.player.res.green++;
