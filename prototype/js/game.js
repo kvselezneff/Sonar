@@ -53,10 +53,10 @@ const EQUIPMENT_DB = {
     ],
     // Unlocked one by one for КЖ (random order)
     pool: [
-      { id: 'H-01', name: 'Гарпун',         type: 'tool',      price: 80,  desc: 'Скан (5э). <3 сегм. → авто-засчёт.' },
-      { id: 'H-04', name: 'Сканер жизни',   type: 'tool',      price: 70,  desc: 'Кол-во нераскрытых сегментов (1э)' },
+      { id: 'H-01', name: 'Гарпун',         type: 'tool',      price: 80,  desc: 'Скан (5э). <3 сегм. → авто-засчёт.', wip: true },
+      { id: 'H-04', name: 'Сканер жизни',   type: 'tool',      price: 70,  desc: 'Кол-во нераскрытых сегментов (1э)', wip: true },
       { id: 'H-05', name: 'Стимулятор',     type: 'passive',   price: 90,  desc: 'При HP=1 → авто +2 HP. Одноразовый.' },
-      { id: 'H-06', name: 'Биоэкстрактор',  type: 'consumable',price: 75,  desc: 'Гарантирует редкий ресурс следующего эфемера' },
+      { id: 'H-06', name: 'Биоэкстрактор',  type: 'consumable',price: 75,  desc: 'Гарантирует редкий ресурс следующего эфемера', wip: true },
     ],
   },
   institute: {
@@ -64,11 +64,11 @@ const EQUIPMENT_DB = {
       { id: 'I-05', name: 'Архивный запрос', type: 'consumable',price: 50,  desc: 'Открывает описание 2 неизвестных эфемеров' },
     ],
     pool: [
-      { id: 'I-01', name: 'Датчик слежения',type: 'passive',   price: 65,  desc: '+1 ОИ каждые 5 ходов. Побег → +5 ОИ.' },
-      { id: 'I-02', name: 'Спектроскоп',    type: 'tool',      price: 70,  desc: 'Тип мембраны без скана (1э)' },
-      { id: 'I-03', name: 'Анализатор',     type: 'passive',   price: 50,  desc: 'После скана: след. сегмент — мембрана?' },
-      { id: 'I-04', name: 'Нейронная карта',type: 'tool',      price: 80,  desc: 'Числа в 5×5 (3э)' },
-      { id: 'I-06', name: 'Резонансный зонд',type:'consumable', price: 60,  desc: 'Форма и размер нераскрытого эфемера' },
+      { id: 'I-01', name: 'Датчик слежения',type: 'passive',   price: 65,  desc: '+1 ОИ каждые 5 ходов. Побег → +5 ОИ.', wip: true },
+      { id: 'I-02', name: 'Спектроскоп',    type: 'tool',      price: 70,  desc: 'Тип мембраны без скана (1э)', wip: true },
+      { id: 'I-03', name: 'Анализатор',     type: 'passive',   price: 50,  desc: 'После скана: след. сегмент — мембрана?', wip: true },
+      { id: 'I-04', name: 'Нейронная карта',type: 'tool',      price: 80,  desc: 'Числа в 5×5 (3э)', wip: true },
+      { id: 'I-06', name: 'Резонансный зонд',type:'consumable', price: 60,  desc: 'Форма и размер нераскрытого эфемера', wip: true },
     ],
   },
   market: {
@@ -77,10 +77,10 @@ const EQUIPMENT_DB = {
     ],
     pool: [
       { id: 'BM-01', name: 'Двойная ставка',type: 'consumable',price: 55,  desc: 'Следующий ресурс ×2, след. штраф ×2 (–2 HP)' },
-      { id: 'BM-02', name: 'Контрабандный скан',type:'tool',   price: 75,  desc: 'Скан (3э), ресурс без цветовых эффектов' },
-      { id: 'BM-03', name: 'Детонатор',     type: 'tool',      price: 50,  desc: 'Взрыв жёлтого 3×3+2э без штрафа (2э)' },
+      { id: 'BM-02', name: 'Контрабандный скан',type:'tool',   price: 75,  desc: 'Скан (3э), ресурс без цветовых эффектов', wip: true },
+      { id: 'BM-03', name: 'Детонатор',     type: 'tool',      price: 50,  desc: 'Взрыв жёлтого 3×3+2э без штрафа (2э)', wip: true },
       { id: 'BM-05', name: 'Фальшивый след',type: 'consumable',price: 45,  desc: 'Следующий штраф → –5 ОИ вместо –1 HP' },
-      { id: 'BM-06', name: 'Резервуар ксиллы',type:'passive',  price: 100, desc: 'Хранит до 3 кристаллов ксиллы. 80м/шт.' },
+      { id: 'BM-06', name: 'Резервуар ксиллы',type:'passive',  price: 100, desc: 'Хранит до 3 кристаллов ксиллы. 80м/шт.', wip: true },
     ],
   },
 };
@@ -1965,7 +1965,16 @@ function renderAll() {
   renderEphTracker();
   renderLog();
   renderBossBar();
+  renderWarpBtn();
   renderOverlay();
+}
+
+function renderWarpBtn() {
+  const btn = document.getElementById('btn-warp');
+  if (!btn) return;
+  const showWarp = (S.player?.res?.warpEssence > 0) && (S.warpSnapshot !== null);
+  btn.classList.toggle('hidden', !showWarp);
+  if (showWarp) btn.textContent = `💜 ВАРП (${S.player.res.warpEssence})`;
 }
 
 function renderResBar() {
@@ -2279,7 +2288,8 @@ function useInventorySlot(slotIdx) {
         addLog(`❄ Заморозка: нет активных таймеров для заморозки`, 'warn');
       }
     } else {
-      addLog(`🔧 ${item.name}: эффект в разработке (${item.desc})`, 'info');
+      S.player.inventory.splice(slotIdx, 1);
+      addLog(`🔧 ${item.name}: в разработке — предмет удалён из слота`, 'warn');
     }
     renderAll();
   }
@@ -2499,11 +2509,6 @@ function renderBossBar() {
         ${blockedTxt}
       </div>
     `;
-  }
-
-  const showWarp = S.player.res.warpEssence > 0 && S.warpSnapshot !== null;
-  if (showWarp) {
-    html += `<button id="btn-warp" onclick="useWarp()" class="boss-warp-btn">💜 ВАРП (${S.player.res.warpEssence})</button>`;
   }
 
   bar.innerHTML = html;
@@ -2728,14 +2733,16 @@ function renderEquipPanel(orgKey, container) {
 }
 
 function renderEquipItem(orgKey, item) {
-  const canBuy = RUN.inventory.length < RUN.inventorySlots && RUN.res.money >= item.price;
+  const canBuy = !item.wip && RUN.inventory.length < RUN.inventorySlots && RUN.res.money >= item.price;
   const typeLabel = EQUIP_TYPE_LABEL[item.type] ?? item.type;
-  return `<div class="shop-item equip-item">
-    <div class="equip-type">${typeLabel}</div>
+  const wipBadge = item.wip ? `<span class="equip-wip-badge">В РАЗРАБОТКЕ</span>` : '';
+  const buyLabel = item.wip ? 'В разработке' : 'Купить';
+  return `<div class="shop-item equip-item${item.wip ? ' equip-wip' : ''}">
+    <div class="equip-type">${typeLabel}${wipBadge}</div>
     <div class="item-name">${item.id} — ${item.name}</div>
     <div class="item-desc">${item.desc}</div>
     <div class="item-cost">${item.price} 💰</div>
-    <button class="btn-equip-buy" onclick="shopEquipBuy('${orgKey}','${item.id}')" ${canBuy?'':'disabled'}>Купить</button>
+    <button class="btn-equip-buy" onclick="shopEquipBuy('${orgKey}','${item.id}')" ${canBuy?'':'disabled'}>${buyLabel}</button>
   </div>`;
 }
 
@@ -2761,6 +2768,7 @@ function shopEquipBuy(orgKey, itemId) {
   const db  = EQUIPMENT_DB[orgKey];
   const item = [...(db.standard || []), ...(db.pool || [])].find(i => i.id === itemId);
   if (!item) return;
+  if (item.wip) { shopMsg = `❌ ${item.name}: в разработке — покупка недоступна`; renderShopOverlay(); return; }
   if (RUN.inventory.length >= RUN.inventorySlots) { shopMsg = '❌ Нет свободных слотов'; renderShopOverlay(); return; }
   if (RUN.res.money < item.price) { shopMsg = `❌ Нужно ${item.price} монет`; renderShopOverlay(); return; }
   RUN.res.money -= item.price;
@@ -2779,6 +2787,7 @@ function renderShopOverlay() {
   document.getElementById('s-oi').textContent     = res.oi;
   document.getElementById('s-green').textContent  = res.green;
   document.getElementById('s-yellow').textContent = res.yellow;
+  document.getElementById('s-pearl').textContent  = res.pearl;
   document.getElementById('s-money').textContent  = res.money;
   document.getElementById('s-hp').textContent     = `${RUN.hp}/${RUN.hpMax}`;
   document.getElementById('s-bat').textContent    = RUN.battery;
@@ -2807,6 +2816,11 @@ function renderShopOverlay() {
     nextCfg?.isBoss ? '⚡ К БОССУ!' : `→ ${nextCfg?.label ?? 'ПРОДОЛЖИТЬ'}`;
 
   renderPhaseBar();
+  // Re-render any open equipment tabs so button states reflect current resources
+  ['hospital', 'institute', 'market'].forEach(org => {
+    const equip = document.getElementById(`${org}-equipment`);
+    if (equip && !equip.classList.contains('hidden')) renderEquipPanel(org, equip);
+  });
 }
 
 // ─── ENCYCLOPEDIA POPUP ───────────────────────────────────────────

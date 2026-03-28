@@ -703,7 +703,23 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
 /* Combo-лампочки при инверсии */
 .combo-lamp.invert { background: var(--purple) !important; box-shadow: 0 0 6px rgba(155,89,182,.8) !important; }
 
-/* Кнопка Варп */
+/* ─── WIP equipment badge ───────────────────────────── */
+.equip-wip-badge {
+  display: inline-block;
+  margin-left: 8px;
+  background: rgba(231,76,60,.15);
+  border: 1px solid var(--red);
+  color: var(--red);
+  font-size: 10px;
+  letter-spacing: 1px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  vertical-align: middle;
+}
+.equip-wip { opacity: 0.55; }
+.equip-wip .btn-equip-buy { cursor: not-allowed; }
+
+/* ─── Кнопка Варп (в keys-bar) ──────────────────────── */
 #btn-warp {
   background: rgba(155,89,182,.15);
   border: 1px solid var(--purple);

@@ -99,7 +99,7 @@
       </div>
       <!-- Boss bar — content rendered dynamically by JS -->
       <div id="boss-bar" class="hidden"></div>
-      <div id="keys-bar"><kbd>L</kbd> Локатор &nbsp; <kbd>E</kbd> Эхолуч &nbsp;&nbsp; <button id="btn-exit-room">🚪 УЙТИ ИЗ КОМНАТЫ</button></div>
+      <div id="keys-bar"><kbd>L</kbd> Локатор &nbsp; <kbd>E</kbd> Эхолуч &nbsp;&nbsp; <button id="btn-exit-room">🚪 УЙТИ ИЗ КОМНАТЫ</button> <button id="btn-warp" class="hidden" onclick="useWarp()">💜 ВАРП (0)</button></div>
       <!-- Tool card slots -->
       <div id="tool-row">
         <div class="card-slot" id="card-0" data-tool="locator">
@@ -207,6 +207,7 @@
       <span class="sres teal">ОИ <span id="s-oi">0</span></span>
       <span class="sres green">🟢 <span id="s-green">0</span></span>
       <span class="sres yellow">🟡 <span id="s-yellow">0</span></span>
+      <span class="sres red">🔴 <span id="s-pearl">0</span></span>
       <span class="sres gold">💰 <span id="s-money">0</span></span>
       <span class="sres red">❤ HP <span id="s-hp">3/3</span></span>
       <span class="sres teal">⚡ <span id="s-bat">3</span>/<span id="s-batmax">7</span>э</span>
