@@ -38,6 +38,11 @@
     </span>
     <span class="res-divider"></span>
     <span id="turn-label">ХОД <span id="turn-val">0</span></span>
+    <span class="res-divider"></span>
+    <label class="hint-toggle-wrap" data-tip="Показывать нарративные подсказки">
+      <input type="checkbox" id="hints-toggle" checked> подсказки
+    </label>
+    <button id="btn-archive" title="Архив сообщений">📖</button>
   </div>
 
   <!-- ═══ PHASE BAR ═══ -->
@@ -327,6 +332,37 @@
     <button id="btn-shop-continue">→ ПРОДОЛЖИТЬ</button>
   </div><!-- /shop-box -->
 </div><!-- /shop-overlay -->
+
+<!-- ═══ NARRATIVE HINT MODAL ═══ -->
+<div id="hint-overlay" class="hidden">
+  <div id="hint-box" class="hint-box hint-normal">
+    <div class="hint-header">
+      <div class="hint-header-top">
+        <span>ЭХОКАМЕРА | ПРОТОКОЛ ВВОДА</span>
+        <span id="hint-clearance"></span>
+      </div>
+      <div id="hint-label"></div>
+    </div>
+    <div id="hint-body" class="hint-body"></div>
+    <div class="hint-footer">
+      <label class="hint-check">
+        <input type="checkbox" id="hint-no-more"> больше не показывать это сообщение
+      </label>
+      <button id="hint-close">ПРИНЯТО</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ARCHIVE MODAL ═══ -->
+<div id="archive-overlay" class="hidden">
+  <div id="archive-box">
+    <div id="archive-header">
+      <span>📖 АРХИВ СООБЩЕНИЙ</span>
+      <button id="archive-close">✕</button>
+    </div>
+    <div id="archive-list"></div>
+  </div>
+</div>
 
 <script src="js/game.js"></script>
 </body>

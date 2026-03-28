@@ -85,6 +85,193 @@ const EQUIPMENT_DB = {
   },
 };
 
+// ─── NARRATIVE HINT SYSTEM ───────────────────────────────────────
+const HINTS_DATA = {
+  'intro': {
+    label: 'ПЕРВИЧНЫЙ ИНСТРУКТАЖ',
+    clearance: 1,
+    type: 'normal',
+    text: 'Это Эхо-Камера, ваша задача — провести исследование Эфира. У вас лёгкая дезориентация и провалы в памяти. Это нормально. Память быстро вернётся, вы поймёте что нужно делать. Ничего не бойтесь. Помните, что всегда можете покинуть комнату.',
+  },
+  'first-empty': {
+    label: 'ПРОТОКОЛ ЭНЕРГЕТИКИ',
+    clearance: 1,
+    type: 'normal',
+    text: 'Эфир переполнен энергией, её легко обнаружить и взять при помощи Локатора. Не допускайте переполнения Батареи. Перегрузка приведёт к ранению, ранения могут привести к смерти. Следите за балансом.',
+  },
+  'first-number': {
+    label: 'КЛАССИФИКАЦИЯ СЕКТОРОВ',
+    clearance: 1,
+    type: 'normal',
+    text: 'Этот сектор Эфира лишён энергии — её поглотил Эфириал, который где-то рядом. Цифра показывает насколько всё плохо. Каждая пятая цифра пополняет ваш счётчик Очков Исследований (ОИ). Если ваш Локатор наткнётся на Эфириала, последний немедленно вас атакует. Используйте Эхо-Луч — он позволяет дезинтегрировать большинство форм агрессивной жизни Эфира.',
+  },
+  'first-echo': {
+    label: 'ПРИМЕНЕНИЕ ЭХО-ЛУЧА',
+    clearance: 1,
+    type: 'normal',
+    text: 'Эхо-Луч расходует 2 единицы батареи за применение. Точный выстрел по Эфириалу нейтрализует его и принесёт ценный ресурс. Не тратьте заряд впустую — перегрузка батареи ранит вас.',
+  },
+  'first-green': {
+    label: 'БИОЛОГИЧЕСКАЯ КЛАССИФИКАЦИЯ',
+    clearance: 1,
+    type: 'normal',
+    text: 'Зелёные и Жёлтые Эфириалы уже изучены вашими предшественниками. Первые совершенно безопасны, эссенция их тел представляет ценность для Госпиталя. Жёлтые энергетически нестабильны, сгустки оставленные ими интересуют Институт. Соберите всё что вам удастся собрать. Будьте осторожны с иными формами Эфириалов — они пока совершенно не изучены.',
+  },
+  'boss-appear': {
+    label: 'СИГНАЛ #ERR',
+    clearance: null,
+    type: 'glitch',
+    lines: [
+      'Ошибка связи. Ошибка связи.',
+      '',
+      'ОШиб\u2026   Эхо-Камера, аварийная ситуация, потеря функционала.',
+      '',
+      'ОШиб\u2026   Не волнуйтесь, мы работаем над проблемой. Мы обязательно вас верн\u2026',
+      '',
+      'Имеет место нестандартная активность неиз\u2026 ормы Эфириала-Босса.',
+    ],
+  },
+  'shop-1': {
+    label: 'ИСТОРИЧЕСКИЙ ОТЧЁТ — ДСП',
+    clearance: 2,
+    type: 'classified',
+    text: 'В 1968 году в государстве [ЦЕНЗУРА] при попытке повторить Филадельфийский эксперимент, Институтом [ЦЕНЗУРА] было осуществлено обнаружение пространства мирового Эфира. Исследовать это пространство оказалось крайне затруднено: средний срок жизни добровольцев-экспериментаторов не превышал 17 секунд.',
+  },
+  'shop-2': {
+    label: 'ПРОГРАММА ОТБОРА — СОВ. СЕКРЕТНО',
+    clearance: 3,
+    type: 'classified',
+    text: 'Спустя 12 лет сбора и анализа данных были разработаны методики отбора исследователей с особыми биологическими характеристиками. Работа по их поиску была поручена Госпиталю [ЦЕНЗУРА], с которой его сотрудники блестяще справились. Вы — один из первой десятки участников нового витка глубоких исследований Эфира.',
+  },
+  'shop-3': {
+    label: 'КОММЕРЧЕСКАЯ ДИРЕКТИВА — СОВ. СЕКРЕТНО',
+    clearance: 3,
+    type: 'classified',
+    text: 'Не смотря на секретность и особый режим работы соблюдаемый [ЦЕНЗУРА], размещённом в [ЦЕНЗУРА], информация об артефактах Эфира скоро вышла за пределы Института и Госпиталя. Руководством было принято решение расширить число допущенных лиц с целью увеличить приток финансов из независимых источников.\n\nНачиная с [ЦЕНЗУРА], ваши сделки на Чёрном Рынке не будут являться предметом специального расследования. Пока вы делаете работу.',
+  },
+};
+
+// Shop lore counter persists across sessions
+let shopLoreCount = parseInt(localStorage.getItem('ech_shop_visits') || '0', 10);
+
+function hintsGlobalOn() {
+  return localStorage.getItem('ech_hints_global') !== '0';
+}
+
+function setHintsGlobal(on) {
+  localStorage.setItem('ech_hints_global', on ? '1' : '0');
+  if (on) {
+    Object.keys(HINTS_DATA).forEach(id => localStorage.removeItem('ech_hint_off_' + id));
+  }
+}
+
+function hintIsDismissed(id) {
+  return localStorage.getItem('ech_hint_off_' + id) === '1';
+}
+
+function showHint(id) {
+  if (!hintsGlobalOn()) return;
+  if (hintIsDismissed(id)) return;
+  const h = HINTS_DATA[id];
+  if (!h) return;
+
+  localStorage.setItem('ech_hint_seen_' + id, '1');
+
+  const overlay  = document.getElementById('hint-overlay');
+  const box      = document.getElementById('hint-box');
+  const labelEl  = document.getElementById('hint-label');
+  const clrEl    = document.getElementById('hint-clearance');
+  const bodyEl   = document.getElementById('hint-body');
+  const noMore   = document.getElementById('hint-no-more');
+
+  box.className       = 'hint-box hint-' + h.type;
+  labelEl.textContent = h.label;
+  clrEl.textContent   = h.clearance ? `УРОВЕНЬ ДОПУСКА: ${h.clearance}` : '';
+  clrEl.style.display = h.clearance ? '' : 'none';
+  noMore.checked      = false;
+  overlay.dataset.hintId = id;
+  overlay.classList.remove('hidden');
+
+  if (h.type === 'glitch') {
+    renderGlitchText(bodyEl, h.lines);
+  } else {
+    bodyEl.innerHTML = fmtHintText(h.text);
+  }
+}
+
+function fmtHintText(text) {
+  return text
+    .replace(/\n\n/g, '<br><br>')
+    .replace(/\n/g, '<br>')
+    .replace(/\[ЦЕНЗУРА\]/g, '<span class="hint-censor">■■■■■</span>');
+}
+
+function renderGlitchText(el, lines) {
+  el.innerHTML = '';
+  const glyphs = '▓░▒█▄▀◙◘■□╳╱╲║═╔╗╚╝';
+  let delay = 0;
+  lines.forEach((line, i) => {
+    if (i > 0) el.appendChild(document.createElement('br'));
+    if (!line) return;
+    const span = document.createElement('span');
+    span.className = 'glitch-line';
+    span.textContent = Array.from(line).map(() => glyphs[Math.random() * glyphs.length | 0]).join('');
+    el.appendChild(span);
+    const d = delay;
+    setTimeout(() => {
+      let step = 0, total = 14;
+      const iv = setInterval(() => {
+        step++;
+        const prog = step / total;
+        span.textContent = Array.from(line).map((c, ci) =>
+          ci / line.length < prog - 0.05 ? c : glyphs[Math.random() * glyphs.length | 0]
+        ).join('');
+        if (step >= total) { clearInterval(iv); span.textContent = line; }
+      }, 70);
+    }, d);
+    delay += 420;
+  });
+}
+
+function closeHint() {
+  const overlay = document.getElementById('hint-overlay');
+  const noMore  = document.getElementById('hint-no-more');
+  const id      = overlay.dataset.hintId;
+  if (noMore.checked && id) localStorage.setItem('ech_hint_off_' + id, '1');
+  overlay.classList.add('hidden');
+}
+
+const ARCHIVE_ORDER = ['intro','first-empty','first-number','first-echo','first-green','boss-appear','shop-1','shop-2','shop-3'];
+
+function openArchive() {
+  const overlay = document.getElementById('archive-overlay');
+  const list    = document.getElementById('archive-list');
+  list.innerHTML = '';
+  ARCHIVE_ORDER.forEach(id => {
+    const h    = HINTS_DATA[id];
+    const seen = localStorage.getItem('ech_hint_seen_' + id) === '1';
+    const item = document.createElement('div');
+    item.className = 'archive-item' + (seen ? '' : ' arc-locked');
+    if (seen) {
+      const bodyHtml = h.type === 'glitch'
+        ? h.lines.join('<br>')
+        : fmtHintText(h.text);
+      const udHtml = h.clearance
+        ? `<span class="archive-item-ud">УД:${h.clearance}</span>`
+        : `<span class="archive-item-ud archive-ud-err">ERR</span>`;
+      item.innerHTML =
+        `<div class="archive-item-hdr"><span class="archive-item-title">${h.label}</span>${udHtml}</div>` +
+        `<div class="archive-item-body">${bodyHtml}</div>`;
+    } else {
+      item.innerHTML =
+        `<div class="archive-item-hdr"><span class="archive-item-title">[ЗАСЕКРЕЧЕНО]</span></div>` +
+        `<div class="archive-item-body archive-item-locked-text">Откроется при выполнении условия</div>`;
+    }
+    list.appendChild(item);
+  });
+  overlay.classList.remove('hidden');
+}
+
 // ─── EPHEMER EFFECT DESCRIPTIONS ─────────────────────────────────
 // Shown in tracker after first Echobeam on this ephemer (or if known from prev run)
 const EPH_EFFECTS_ECHO = {
@@ -379,6 +566,7 @@ function initRun() {
     colorMembranes:     assignColorMembranes(),
     colorCounts: { green: 0, yellow: 0, red: 0, blue: 0, purple: 0 },
     shapeCounts: {},
+    hintFlags: { firstEmpty: false, firstNumber: false, firstEcho: false, firstGreen: false },
     stats: {
       totalTurns:     0,
       emptyCells:     0,
@@ -455,8 +643,10 @@ function startRoom(roomIdx) {
       resStart:     { ...RUN.res },  // snapshot for «заработано в этой комнате»
     },
   };
-  if (cfg.isBoss) placeBoss(cfg.bossIdx);
-  else {
+  if (cfg.isBoss) {
+    placeBoss(cfg.bossIdx);
+    setTimeout(() => showHint('boss-appear'), 400);
+  } else {
     placeEphemers(cfg.ephConfig);
     // M-09 Память: first ephemer of memorized color is pre-discovered
     if (RUN.memoryPreviewColor) {
@@ -1002,6 +1192,10 @@ function doLocator(c) {
       c.state = 'empty'; c.vis = true;
       S.newEmptyCells.add(`${c.x},${c.y}`);
       S.stats.emptyCells++;
+      if (!RUN.hintFlags.firstEmpty) {
+        RUN.hintFlags.firstEmpty = true;
+        setTimeout(() => showHint('first-empty'), 200);
+      }
       if (S.invertActive) {
         addEnergy(-1, false);
         addLog(`📡 Пустая. ⚠ ИНВЕРСИЯ! –1э. (фиолетовый активен)`, 'warn');
@@ -1014,6 +1208,10 @@ function doLocator(c) {
     } else {
       c.state = 'number'; c.vis = true;
       S.stats.numberCells++;
+      if (!RUN.hintFlags.firstNumber) {
+        RUN.hintFlags.firstNumber = true;
+        setTimeout(() => showHint('first-number'), 200);
+      }
       addLog(`📍 Число ${c.resNum}.`, 'info');
       SFX.sonarPing(S.player.comboNums);
       S.player.comboNums++;
@@ -1083,6 +1281,10 @@ function doEchobeamer(c) {
     S.player.freeEchobeams--;
     addLog(`⊕ Бесплатный Эхолуч (осталось: ${S.player.freeEchobeams})`, 'ok');
   }
+  if (!RUN.hintFlags.firstEcho) {
+    RUN.hintFlags.firstEcho = true;
+    setTimeout(() => showHint('first-echo'), 200);
+  }
   if (c.eIdx === -1) {
     if (!isFree) addEnergy(-ECHO_COST, false);
     c.state = c.resNum === 0 ? 'empty' : 'number'; c.vis = true;
@@ -1146,6 +1348,10 @@ function doEchobeamer(c) {
       }
     }
   } else if (eph.type === 'green') {
+    if (!RUN.hintFlags.firstGreen) {
+      RUN.hintFlags.firstGreen = true;
+      setTimeout(() => showHint('first-green'), 300);
+    }
     const dbl = S.player.doubleBet;
     if (dbl) { S.player.doubleBet = false; }
     const amt = dbl ? 2 : 1;
@@ -1614,6 +1820,12 @@ function showShopOverlay(nextRoomIdx) {
   document.getElementById('shop-overlay').classList.remove('hidden');
   SFX.shop();
   renderShopOverlay();
+  // Shop lore: show message #1 on 1st visit, #2 on 2nd, #3 on 3rd
+  shopLoreCount++;
+  localStorage.setItem('ech_shop_visits', shopLoreCount);
+  if (shopLoreCount <= 3) {
+    setTimeout(() => showHint('shop-' + shopLoreCount), 500);
+  }
 }
 
 function hideShopOverlay() {
@@ -1722,6 +1934,7 @@ function newGameRun() {
   hideShopOverlay();
   initRun();
   startRoom(0);
+  setTimeout(() => showHint('intro'), 400);
 }
 
 // ─── LOG ──────────────────────────────────────────────────────────
@@ -2668,6 +2881,23 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('ency-popup').classList.add('hidden');
   });
 
+  // Hint system
+  document.getElementById('hint-close').addEventListener('click', closeHint);
+  document.getElementById('hints-toggle').addEventListener('change', e => {
+    setHintsGlobal(e.target.checked);
+  });
+  document.getElementById('btn-archive').addEventListener('click', openArchive);
+  document.getElementById('archive-close').addEventListener('click', () => {
+    document.getElementById('archive-overlay').classList.add('hidden');
+  });
+  document.getElementById('archive-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('archive-overlay'))
+      document.getElementById('archive-overlay').classList.add('hidden');
+  });
+  // Init toggle state from localStorage
+  document.getElementById('hints-toggle').checked = hintsGlobalOn();
+
   initRun();
   startRoom(0);
+  setTimeout(() => showHint('intro'), 400);
 });
