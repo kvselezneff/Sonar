@@ -762,62 +762,62 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
   z-index: 300;
 }
 .hint-box {
-  width: 530px;
-  max-width: 92vw;
+  width: 700px;
+  max-width: 95vw;
   border-radius: 4px;
   font-family: 'Courier New', monospace;
   position: relative;
   overflow: hidden;
 }
 .hint-header {
-  padding: 11px 16px 10px;
+  padding: 14px 22px 12px;
   border-bottom: 1px solid;
 }
 .hint-header-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 10px;
+  font-size: 13px;
   letter-spacing: 1.5px;
-  margin-bottom: 7px;
+  margin-bottom: 8px;
   text-transform: uppercase;
 }
 #hint-label {
-  font-size: 13px;
+  font-size: 18px;
   font-weight: bold;
   letter-spacing: 2px;
   text-transform: uppercase;
 }
 .hint-body {
-  padding: 18px 18px 14px;
-  font-size: 14px;
-  line-height: 1.75;
-  min-height: 70px;
+  padding: 22px 22px 18px;
+  font-size: 20px;
+  line-height: 1.7;
+  min-height: 80px;
 }
 .hint-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 16px;
+  padding: 13px 22px;
   border-top: 1px solid;
-  font-size: 12px;
-  gap: 10px;
+  font-size: 16px;
+  gap: 12px;
 }
 .hint-check {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   cursor: pointer;
   flex-shrink: 0;
 }
-.hint-check input { cursor: pointer; accent-color: var(--teal); }
+.hint-check input { cursor: pointer; accent-color: var(--teal); width: 16px; height: 16px; }
 #hint-close {
   background: none;
   border: 1px solid;
-  padding: 5px 18px;
+  padding: 7px 24px;
   cursor: pointer;
   font-family: 'Courier New', monospace;
-  font-size: 12px;
+  font-size: 15px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
   white-space: nowrap;
