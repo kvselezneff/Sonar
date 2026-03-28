@@ -117,6 +117,12 @@ const HINTS_DATA = {
     type: 'normal',
     text: 'Зелёные и Жёлтые Эфириалы уже изучены вашими предшественниками. Первые совершенно безопасны, эссенция их тел представляет ценность для Госпиталя. Жёлтые энергетически нестабильны, сгустки оставленные ими интересуют Институт. Соберите всё что вам удастся собрать. Будьте осторожны с иными формами Эфириалов — они пока совершенно не изучены.',
   },
+  'first-membrane': {
+    label: 'ОБНАРУЖЕНИЕ МЕМБРАНЫ',
+    clearance: 1,
+    type: 'normal',
+    text: 'Мембрана — главный и загадочный орган всякого Эфириала. Если открыть Эхо-лучом мембрану последним из исследованных сегментов Эфириала — происходит ценный для изучения эффект. Будьте осторожны с незнакомыми Эфириалами и мембранами. Эффект не всегда будет положительным.',
+  },
   'boss-appear': {
     label: 'СИГНАЛ #ERR',
     clearance: null,
@@ -241,7 +247,7 @@ function closeHint() {
   overlay.classList.add('hidden');
 }
 
-const ARCHIVE_ORDER = ['intro','first-empty','first-number','first-echo','first-green','boss-appear','shop-1','shop-2','shop-3'];
+const ARCHIVE_ORDER = ['intro','first-empty','first-number','first-echo','first-green','first-membrane','boss-appear','shop-1','shop-2','shop-3'];
 
 function openArchive() {
   const overlay = document.getElementById('archive-overlay');
@@ -566,7 +572,7 @@ function initRun() {
     colorMembranes:     assignColorMembranes(),
     colorCounts: { green: 0, yellow: 0, red: 0, blue: 0, purple: 0 },
     shapeCounts: {},
-    hintFlags: { firstEmpty: false, firstNumber: false, firstEcho: false, firstGreen: false },
+    hintFlags: { firstEmpty: false, firstNumber: false, firstEcho: false, firstGreen: false, firstMembrane: false },
     stats: {
       totalTurns:     0,
       emptyCells:     0,
@@ -1439,6 +1445,10 @@ function doEchobeamer(c) {
   }
 
   if (c.isMembrane && eph.type !== 'boss') {
+    if (!RUN.hintFlags.firstMembrane) {
+      RUN.hintFlags.firstMembrane = true;
+      setTimeout(() => showHint('first-membrane'), 300);
+    }
     const revealed = eph.scanned + eph.opened;
     if (revealed === eph.segs.length) {
       eph.triggered = true;
