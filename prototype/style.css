@@ -703,6 +703,17 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
 /* Combo-лампочки при инверсии */
 .combo-lamp.invert { background: var(--purple) !important; box-shadow: 0 0 6px rgba(155,89,182,.8) !important; }
 
+/* ─── M-02 ВОЛНА — wave animation ───────────────────── */
+@keyframes wave-flash {
+  0%   { background: rgba(78,205,196,.85); box-shadow: 0 0 12px rgba(78,205,196,.9); }
+  60%  { background: rgba(78,205,196,.25); }
+  100% { background: inherit; box-shadow: none; }
+}
+.cell-wave-anim {
+  animation: wave-flash 0.55s ease-out both;
+  animation-delay: calc(var(--wave-col, 0) * 65ms);
+}
+
 /* ─── M-04 УСИЛЕНИЕ — Amplify active state ──────────── */
 @keyframes amplify-shimmer {
   0%   { box-shadow: 0 0 6px 1px rgba(231,76,60,.4), inset 0 0 8px rgba(231,76,60,.1); border-color: rgba(231,76,60,.7); }

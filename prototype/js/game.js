@@ -1654,15 +1654,20 @@ function applyMembraneTrigger(eph, memCell) {
       const nc = cell(x, bestRow);
       if (nc && !nc.vis && nc.eIdx === -1) rowCells.push(nc);
     }
-    // Animate wave left-to-right
-    rowCells.forEach((nc, i) => {
-      setTimeout(() => {
-        nc.state = nc.resNum > 0 ? 'number' : 'empty'; nc.vis = true;
-        renderGrid();
-      }, i * 60);
-    });
+    // Reveal all cells immediately (state), animate via CSS after render
+    rowCells.forEach(nc => { nc.state = nc.resNum > 0 ? 'number' : 'empty'; nc.vis = true; });
     SFX.wave();
     addLog(`≋ Волна: строка ${bestRow + 1} — ${rowCells.length} клеток раскрыто`, 'trigger');
+    // CSS wave animation applied after renderAll() places the DOM elements
+    setTimeout(() => {
+      rowCells.forEach((nc, i) => {
+        const el = document.querySelector(`[data-xy="${nc.x},${nc.y}"]`);
+        if (!el) return;
+        el.style.setProperty('--wave-col', i);
+        el.classList.add('cell-wave-anim');
+        setTimeout(() => el.classList.remove('cell-wave-anim'), i * 65 + 600);
+      });
+    }, 30);
 
   } else if (mType === 'M-03') {
     // Сонар: квадрат 5×5 вокруг мембраны; попадание по эфемеру = Эхолуч
@@ -2135,7 +2140,8 @@ function renderWarpBtn() {
   const isBoss = cfg?.isBoss;
   const warp = S.player?.res?.warpEssence || 0;
   const cost = (RUN.warpUseCount || 0) + 1;
-  const canWarp = isBoss && !S.warpExited && warp >= cost && S.warpHistory && S.warpHistory.length > 0 && S.phase === 'playing';
+  const boss = S.ephemers?.[0];
+  const canWarp = isBoss && !S.warpExited && !boss?.eyesNeutralized && !boss?.done && warp >= cost && S.warpHistory && S.warpHistory.length > 0 && S.phase === 'playing';
   btn.classList.toggle('hidden', !canWarp);
   if (canWarp) btn.textContent = `💜 ВАРП (−${cost}э)`;
 }
