@@ -685,7 +685,7 @@ function startRoom(roomIdx) {
   }
   // Full battery warning at room start
   if (S.player.battery >= S.player.batMax) {
-    addLog(`⚠ Батарея полна — Эхолучи недоступны, пока не потратишь энергию!`, 'warn');
+    addLog(`⚠ Батарея полна — переключись на Эхолуч, иначе следующий заряд повредит тебя!`, 'warn');
     SFX.warn();
   }
   calcResonance();
