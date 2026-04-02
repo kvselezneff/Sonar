@@ -25,7 +25,7 @@ const MEMBRANE_DEFS = {
   'M-08': { name: 'Взрыв',        symbol: '✸', desc: 'Раскрытие 3×3 + 3э (штраф за перегрузку); Эхолуч-эффект' },
   'M-09': { name: 'Память',       symbol: '◈', desc: 'Форма следующего эфемера того же цвета видна' },
   'M-10': { name: 'Резонанс',     symbol: '∞', desc: 'Следующий Trigger срабатывает дважды' },
-  'M-11': { name: 'Прозрение',    symbol: '◇', desc: '2 эфемера в Энциклопедию + 1 рифт' },
+  'M-11': { name: 'Прозрение',    symbol: '◇', desc: '2 эфемера в Энциклопедию + 1 варп-материя' },
   'M-12': { name: 'Регенерация',  symbol: '♥', desc: '+1 HP; при макс. HP → +1 лимит HP; при лимите 7 → +10м' },
 };
 function assignColorMembranes() {
@@ -130,10 +130,10 @@ const HINTS_DATA = {
     text: 'Вы добыли Красный Жемчуг. Будьте осторожны — информация о том, что вы его нашли, распространяется быстро. Красный Жемчуг — крайне редкий артефакт Эфира. За ним охотятся все: Госпиталь предлагает за него эксклюзивные разработки, Институт — засекреченные данные, а Чёрный Рынок платит втридорога. Никому не говорите, что вы его нашли. Никому.',
   },
   'first-purple': {
-    label: 'РИФТ — ОСОБЫЙ РЕЖИМ',
+    label: 'ВАРП-МАТЕРИЯ — ОСОБЫЙ РЕЖИМ',
     clearance: 3,
     type: 'classified',
-    text: 'Вы добыли Рифт. Полумифический ресурс, который можно извлечь только из наиболее нестабильных и опасных зон Эфира — обычно в прямом контакте с Боссом или фиолетовыми Эфириалами. Природа субстанции пока не исследована — единственное что известно, Рифт позволяет управлять хронологией событий в Эхо-Камере. Используйте его, находясь под давлением Босса — кнопка ВАРП позволит откатить несколько ходов назад.',
+    text: 'Вы добыли Варп-материя. Полумифический ресурс, который можно извлечь только из наиболее нестабильных и опасных зон Эфира — обычно в прямом контакте с Боссом или фиолетовыми Эфириалами. Природа субстанции пока не исследована — единственное что известно, Варп-материя позволяет управлять хронологией событий в Эхо-Камере. Используйте его, находясь под давлением Босса — кнопка ВАРП позволит откатить несколько ходов назад.',
   },
   'boss-appear': {
     label: 'СИГНАЛ #ERR',
@@ -297,7 +297,7 @@ const EPH_EFFECTS_ECHO = {
   yellow: 'Эхолуч: +4 энергии (без перегрузки), +1 сгусток',
   red:    'Эхолуч: агрессия + 30% → жемчуг',
   blue:   'Эхолуч: 50% страх (5 ходов) + 20% → ксилла (+10 ОИ)',
-  purple: 'Эхолуч: ресурс / ±1 HP / 10% → Рифт',
+  purple: 'Эхолуч: ресурс / ±1 HP / 10% → Варп-материя',
 };
 // Shown only after Locator was used on this ephemer (or if known from prev run)
 const EPH_EFFECTS_LOC = {
@@ -1118,12 +1118,16 @@ function addOI(n) { S.player.res.oi += n; S.stats.oiEarned += n; SFX.oi(); }
 function deepCloneS() {
   const savedSet   = S.newEmptyCells;
   const savedSnap  = S.warpSnapshot;
+  const savedHist  = S.warpHistory;
   S.newEmptyCells  = [...savedSet];
   S.warpSnapshot   = null;  // don't serialize snapshot recursively
+  S.warpHistory    = [];    // don't serialize history recursively (exponential growth!)
   const clone      = JSON.parse(JSON.stringify(S));
   S.newEmptyCells  = savedSet;
   S.warpSnapshot   = savedSnap;
+  S.warpHistory    = savedHist;
   clone.newEmptyCells = [];
+  clone.warpHistory   = [];
   return clone;
 }
 
@@ -1382,7 +1386,7 @@ function doEchobeamer(c) {
         S.player.res.warpEssence++;
         document.getElementById('res-warp')?.classList.remove('hidden');
         if (!RUN.hintFlags.firstPurple) { RUN.hintFlags.firstPurple = true; setTimeout(() => showHint('first-purple'), 400); }
-        addLog(`✅ Сегмент Босса. 💜 РИФТ! –${ECHO_COST}э.`, 'trigger'); SFX.purple();
+        addLog(`✅ Сегмент Босса. 💜 ВАРП-МАТЕРИЯ! –${ECHO_COST}э.`, 'trigger'); SFX.purple();
       } else {
         addLog(`✅ Сегмент Босса. Тишина. –${ECHO_COST}э.`, 'info'); SFX.green();
       }
@@ -1486,14 +1490,14 @@ function doEchobeamer(c) {
       }
       SFX.purple();
     } else if (roll < 0.9) {
-      // 10%: Рифт
+      // 10%: Варп-материя
       S.player.res.warpEssence++;
       document.getElementById('res-warp')?.classList.remove('hidden');
       if (!RUN.hintFlags.firstPurple) {
         RUN.hintFlags.firstPurple = true;
         setTimeout(() => showHint('first-purple'), 400);
       }
-      addLog(`✅ Фиолетовый. 💜 РИФТ! –${ECHO_COST}э.`, 'trigger'); SFX.purple();
+      addLog(`✅ Фиолетовый. 💜 ВАРП-МАТЕРИЯ! –${ECHO_COST}э.`, 'trigger'); SFX.purple();
     } else {
       // 10%: ничего особого
       addLog(`✅ Фиолетовый. Без эффекта. –${ECHO_COST}э.`, 'ok'); SFX.purple();
@@ -1770,7 +1774,7 @@ function applyMembraneTrigger(eph, memCell) {
       RUN.hintFlags.firstPurple = true;
       setTimeout(() => showHint('first-purple'), 400);
     }
-    addLog(`◇ Прозрение: ${Math.min(2, unknowns.length)} эфемера в Энциклопедию + 1 рифт`, 'trigger');
+    addLog(`◇ Прозрение: ${Math.min(2, unknowns.length)} эфемера в Энциклопедию + 1 варп-материя`, 'trigger');
 
   } else if (mType === 'M-12') {
     // Регенерация: +1 HP; при макс. HP → +1 лимит HP; если лимит уже 7 → +10м
@@ -2147,7 +2151,7 @@ function renderWarpBtn() {
   const boss = S.ephemers?.[0];
   const canWarp = isBoss && !S.warpExited && !boss?.eyesNeutralized && !boss?.done && warp >= cost && S.warpHistory && S.warpHistory.length > 0 && S.phase === 'playing';
   btn.classList.toggle('hidden', !canWarp);
-  if (canWarp) btn.textContent = `💜 ВАРП (−${cost} рифт${cost > 1 ? 'а' : ''})`;
+  if (canWarp) btn.textContent = `💜 ВАРП (−${cost} ${cost === 1 ? 'варп-материя' : 'варп-материи'})`;
 }
 
 function renderResBar() {
@@ -2383,7 +2387,7 @@ function useWarp() {
     return;
   }
   if ((S.player.res.warpEssence || 0) < cost) {
-    addLog(`💜 ВАРП: нужно ${cost} рифт${cost > 1 ? 'а' : ''} (у вас ${S.player.res.warpEssence || 0})`, 'warn');
+    addLog(`💜 ВАРП: нужно ${cost} ${cost === 1 ? 'варп-материя' : 'варп-материи'} (у вас ${S.player.res.warpEssence || 0})`, 'warn');
     renderLog();
     return;
   }
@@ -2397,7 +2401,7 @@ function useWarp() {
   S.warpHistory = [];
   S.player.res.warpEssence = newEssence;
   S.warpExited = true;   // exit is now unlocked (but boss not killed)
-  addLog(`💜 ВАРП! Откат на ${rollback} ${rollback===1?'ход':'ходов'}. Потрачено ${cost} рифт${cost>1?'а':''}.`, 'trigger');
+  addLog(`💜 ВАРП! Откат на ${rollback} ${rollback===1?'ход':'ходов'}. Потрачено ${cost} ${cost === 1 ? 'варп-материя' : 'варп-материи'}.`, 'trigger');
   addLog(`⚠ Босс не повержён — выход вернёт вас обратно к битве!`, 'warn');
   SFX.purple();
   renderAll();
@@ -2856,7 +2860,7 @@ function renderOverlay() {
       rows.push(['']);
       rows.push([`<span style="color:#9b59b6">── 💜 НОВЫЙ ТИП: ФИОЛЕТОВЫЕ ──────</span>`, '']);
       rows.push([`<span style="color:#9b59b6">Локатор:</span>`, 'ИНВЕРСИЯ — пустые клетки не дают +1э, а снимают 1э, пока эфемер не исследован']);
-      rows.push([`<span style="color:#9b59b6">Эхолуч:</span>`, '40% — случайный ресурс; 40% — ±1 HP; 10% — Рифт (откат ходов у Босса)']);
+      rows.push([`<span style="color:#9b59b6">Эхолуч:</span>`, '40% — случайный ресурс; 40% — ±1 HP; 10% — Варп-материя (откат ходов у Босса)']);
       rows.push([`<span style="color:#9b59b6">Визуальный эффект:</span>`, 'лампочки Локатора становятся фиолетовыми']);
     }
   }
