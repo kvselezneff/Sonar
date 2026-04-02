@@ -703,6 +703,38 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
 /* Combo-лампочки при инверсии */
 .combo-lamp.invert { background: var(--purple) !important; box-shadow: 0 0 6px rgba(155,89,182,.8) !important; }
 
+/* ─── M-04 УСИЛЕНИЕ — Amplify active state ──────────── */
+@keyframes amplify-shimmer {
+  0%   { box-shadow: 0 0 6px 1px rgba(231,76,60,.4), inset 0 0 8px rgba(231,76,60,.1); border-color: rgba(231,76,60,.7); }
+  50%  { box-shadow: 0 0 14px 3px rgba(231,76,60,.8), inset 0 0 14px rgba(231,76,60,.25); border-color: #e74c3c; }
+  100% { box-shadow: 0 0 6px 1px rgba(231,76,60,.4), inset 0 0 8px rgba(231,76,60,.1); border-color: rgba(231,76,60,.7); }
+}
+.card-slot.amplify-active {
+  animation: amplify-shimmer 0.9s ease-in-out infinite;
+  border-color: rgba(231,76,60,.7) !important;
+}
+.amplify-badge {
+  position: absolute;
+  top: 4px; right: 5px;
+  font-size: 11px;
+  color: #ff7070;
+  font-weight: bold;
+  text-shadow: 0 0 6px rgba(231,76,60,.9);
+  pointer-events: none;
+}
+
+/* ─── M-06 ЗАЩИТА — protection bubble on HP ─────────── */
+.heart.protection-bubble {
+  font-size: 20px;
+  margin-left: 2px;
+  animation: bubble-pulse 1.4s ease-in-out infinite;
+  cursor: default;
+}
+@keyframes bubble-pulse {
+  0%,100% { opacity: 0.7; transform: scale(1); }
+  50%      { opacity: 1;   transform: scale(1.15); }
+}
+
 /* ─── WIP equipment badge ───────────────────────────── */
 .equip-wip-badge {
   display: inline-block;

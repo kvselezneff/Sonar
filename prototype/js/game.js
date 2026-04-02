@@ -16,17 +16,17 @@ const RED_AGGR_INTERVAL        = 3;   // red ephemer generates hostile cell ever
 // 2 types randomly assigned per color each run.
 const MEMBRANE_DEFS = {
   'M-01': { name: 'Пульс',        symbol: 'Ψ', desc: '+3э; переполнение → +1 лимит батареи' },
-  'M-02': { name: 'Волна',        symbol: '≋', desc: 'Раскрыть строку мембраны' },
-  'M-03': { name: 'Сонар',        symbol: '◎', desc: 'Все числовые клетки раскрыты' },
-  'M-04': { name: 'Усиление',     symbol: '⊕', desc: '+3 бесплатных Эхолуча' },
-  'M-05': { name: 'Исследование', symbol: '✦', desc: '+3 ОИ +10м' },
-  'M-06': { name: 'Щит',         symbol: '△', desc: 'Следующий штраф отменён' },
-  'M-07': { name: 'Эхолот',       symbol: '⊙', desc: '3 клетки с макс. числами раскрыты' },
-  'M-08': { name: 'Взрыв',        symbol: '✸', desc: 'Раскрытие 3×3 + 2э' },
+  'M-02': { name: 'Волна',        symbol: '≋', desc: 'Строка с макс. скрытых клеток раскрыта (волна слева)' },
+  'M-03': { name: 'Сонар',        symbol: '◎', desc: 'Квадрат 5×5 вокруг мембраны; попадание по эфемеру = Эхолуч' },
+  'M-04': { name: 'Усиление',     symbol: '⊕', desc: 'Следующие 3 Эхолуча по эфемерам: ×2 ресурс; 25% → ×4' },
+  'M-05': { name: 'Исследование', symbol: '✦', desc: '+3 ОИ; подсветить до 3 сегментов эфемеров' },
+  'M-06': { name: 'Защита',       symbol: '△', desc: 'Силовое поле: поглощает следующий удар (до щита)' },
+  'M-07': { name: 'Эхолот',       symbol: '⊙', desc: '3 клетки с макс. числами раскрыты + 3 ОИ' },
+  'M-08': { name: 'Взрыв',        symbol: '✸', desc: 'Раскрытие 3×3 + 3э (штраф за перегрузку); Эхолуч-эффект' },
   'M-09': { name: 'Память',       symbol: '◈', desc: 'Форма следующего эфемера того же цвета видна' },
   'M-10': { name: 'Резонанс',     symbol: '∞', desc: 'Следующий Trigger срабатывает дважды' },
-  'M-11': { name: 'Прозрение',    symbol: '◇', desc: '2 эфемера добавляются в Энциклопедию' },
-  'M-12': { name: 'Регенерация',  symbol: '♥', desc: '+1 HP; при макс. HP → +1 лимит HP' },
+  'M-11': { name: 'Прозрение',    symbol: '◇', desc: '2 эфемера в Энциклопедию + 1 варп-эссенция' },
+  'M-12': { name: 'Регенерация',  symbol: '♥', desc: '+1 HP; при макс. HP → +10м' },
 };
 function assignColorMembranes() {
   const pool = Object.keys(MEMBRANE_DEFS);
@@ -122,6 +122,18 @@ const HINTS_DATA = {
     clearance: 1,
     type: 'normal',
     text: 'Мембрана — главный и загадочный орган всякого Эфириала. Если открыть Эхо-лучом мембрану последним из исследованных сегментов Эфириала — происходит ценный для изучения эффект (награда 10 монет). Будьте осторожны с незнакомыми Эфириалами и мембранами. Эффект не всегда будет положительным.',
+  },
+  'first-red': {
+    label: 'КРАСНЫЙ ЖЕМЧУГ — ВНИМАНИЕ',
+    clearance: 2,
+    type: 'classified',
+    text: 'Вы добыли Красный Жемчуг. Будьте осторожны — информация о том, что вы его нашли, распространяется быстро. Красный Жемчуг — крайне редкий артефакт Эфира. За ним охотятся все: Госпиталь предлагает за него эксклюзивные разработки, Институт — засекреченные данные, а Чёрный Рынок платит втридорога. Никому не говорите, что вы его нашли. Никому.',
+  },
+  'first-purple': {
+    label: 'ВАРП-ЭССЕНЦИЯ — ОСОБЫЙ РЕЖИМ',
+    clearance: 3,
+    type: 'classified',
+    text: 'Вы добыли Варп-Эссенцию. Полумифический ресурс, который можно извлечь только из наиболее нестабильных и опасных зон Эфира — обычно в прямом контакте с боссом или фиолетовыми Эфириалами. Природа субстанции пока не исследована — единственное что известно, она позволяет управлять хронологией событий в Эхо-Камере. Используйте её, находясь под давлением босса — кнопка ВАРП позволит вам откатить несколько ходов.',
   },
   'boss-appear': {
     label: 'СИГНАЛ #ERR',
@@ -247,7 +259,7 @@ function closeHint() {
   overlay.classList.add('hidden');
 }
 
-const ARCHIVE_ORDER = ['intro','first-empty','first-number','first-echo','first-green','first-membrane','boss-appear','shop-1','shop-2','shop-3'];
+const ARCHIVE_ORDER = ['intro','first-empty','first-number','first-echo','first-green','first-membrane','first-red','first-purple','boss-appear','shop-1','shop-2','shop-3'];
 
 function openArchive() {
   const overlay = document.getElementById('archive-overlay');
@@ -418,14 +430,14 @@ const ROOM_CONFIGS = [
     label: '⚡ БОСС 2', gridW: 14, gridH: 14, cellSize: 32, isBoss: true, bossIdx: 1, pulseInterval: 3,
     pulseHostileCount: 2, emiProbs: [0.10, 0.30, 0.50, 1.00], ephConfig: null,
   },
-  {  // [6] — first room after Boss 2
+  {  // [6] — first room after Boss 2 (≥60% non-GY: 1G+1Y+2R+2B+2P = 6/8 = 75%)
     label: 'Комната 5', gridW: 10, gridH: 10, cellSize: 46, isBoss: false, bossIdx: null, pulseInterval: 5,
     ephConfig: [
-      { type: 'green',  shapes: GREEN_SHAPES,  count: 2 },
-      { type: 'yellow', shapes: YELLOW_SHAPES, count: 2 },
+      { type: 'green',  shapes: GREEN_SHAPES,  count: 1 },
+      { type: 'yellow', shapes: YELLOW_SHAPES, count: 1 },
       { type: 'red',    shapes: RED_SHAPES,    count: 2 },
-      { type: 'blue',   shapes: BLUE_SHAPES,   count: 1 },
-      { type: 'purple', shapes: PURPLE_SHAPES, count: 1 },
+      { type: 'blue',   shapes: BLUE_SHAPES,   count: 2 },
+      { type: 'purple', shapes: PURPLE_SHAPES, count: 2 },
     ],
   },
   {  // [7] — second room before Boss 3 (NEW)
@@ -533,6 +545,7 @@ const SFX = {
   },
   sonarPing: (i) => playSonarPing(i),
   purple:  () => { playTone(350, 0.6, 'triangle', 0.2); setTimeout(() => playTone(280, 0.8, 'sine', 0.15), 320); },
+  wave:    () => { [0,60,120,180,240,300,360,420].forEach((d,i) => setTimeout(() => playTone(260 + i*55, 0.22, 'sine', 0.14), d)); },
 };
 
 // ─── PERSISTENT STATE (survives newRun) ───────────────────────────
@@ -561,9 +574,11 @@ function initRun() {
     inventory:         [],
     inventorySlots:    2,
     freeEchobeams:      0,
+    amplifyCharges:     0,
     nextTriggerDouble:  false,
     memoryPreviewColor: null,
     membraneShield:     false,
+    membraneProtection: false,
     stimulatorActive:   false,
     fakeTail:           false,
     doubleBet:          false,
@@ -572,7 +587,8 @@ function initRun() {
     colorMembranes:     assignColorMembranes(),
     colorCounts: { green: 0, yellow: 0, red: 0, blue: 0, purple: 0 },
     shapeCounts: {},
-    hintFlags: { firstEmpty: false, firstNumber: false, firstEcho: false, firstGreen: false, firstMembrane: false },
+    hintFlags: { firstEmpty: false, firstNumber: false, firstEcho: false, firstGreen: false, firstMembrane: false, firstRed: false, firstPurple: false },
+    warpUseCount: 0,
     stats: {
       totalTurns:     0,
       emptyCells:     0,
@@ -615,8 +631,11 @@ function startRoom(roomIdx) {
       inventory:         [...RUN.inventory],
       inventorySlots:    RUN.inventorySlots,
       freeEchobeams:      RUN.freeEchobeams,
+      amplifyCharges:     RUN.amplifyCharges,
       nextTriggerDouble:  RUN.nextTriggerDouble,
+      memoryPreviewColor: null,
       membraneShield:     RUN.membraneShield,
+      membraneProtection: RUN.membraneProtection,
       stimulatorActive:   RUN.stimulatorActive,
       fakeTail:           RUN.fakeTail,
       doubleBet:          RUN.doubleBet,
@@ -639,6 +658,8 @@ function startRoom(roomIdx) {
     freezeActive:    false,
     freezeTargets:   [],
     warpSnapshot:    null,
+    warpHistory:     [],
+    warpExited:      false,
     stats: {
       emptyCells:   0,
       numberCells:  0,
@@ -690,8 +711,10 @@ function saveRoomToRun() {
   RUN.inventory         = [...S.player.inventory];
   RUN.inventorySlots    = S.player.inventorySlots;
   RUN.freeEchobeams      = S.player.freeEchobeams;
+  RUN.amplifyCharges     = S.player.amplifyCharges;
   RUN.nextTriggerDouble  = S.player.nextTriggerDouble;
   RUN.membraneShield     = S.player.membraneShield;
+  RUN.membraneProtection = S.player.membraneProtection;
   RUN.stimulatorActive   = S.player.stimulatorActive;
   RUN.fakeTail           = S.player.fakeTail;
   RUN.doubleBet          = S.player.doubleBet;
@@ -1115,10 +1138,13 @@ function applyTool(x, y) {
     renderToolCards();
     return;
   }
-  // Save warp snapshot in boss rooms when warpEssence is available
+  // Save warp history in boss rooms (keep last 5 turns)
   const cfg = ROOM_CONFIGS[currentRoomIdx];
-  if (cfg.isBoss && S.player.res.warpEssence > 0) {
-    S.warpSnapshot = deepCloneS();
+  if (cfg.isBoss && !S.warpExited) {
+    const snap = deepCloneS();
+    S.warpHistory = S.warpHistory || [];
+    S.warpHistory.unshift(snap);
+    if (S.warpHistory.length > 5) S.warpHistory.pop();
   }
   S.newEmptyCells = new Set();
   const turnConsumed = S.tool === 'locator' ? doLocator(c) : doEchobeamer(c);
@@ -1277,6 +1303,12 @@ function floodFill(sx, sy) {
 }
 
 // ── ECHOBEAMER ──
+function _useAmplify() {
+  if (!S.player.amplifyCharges || S.player.amplifyCharges <= 0) return 1;
+  S.player.amplifyCharges--;
+  return Math.random() < 0.25 ? 4 : 2;
+}
+
 function doEchobeamer(c) {
   const isFree = S.player.freeEchobeams > 0;
   if (!isFree && S.player.battery < ECHO_COST) {
@@ -1335,6 +1367,7 @@ function doEchobeamer(c) {
         } else {
           S.player.res.pearl++;
           addLog(`✅ Сегмент Босса. +1 жемчуг! –${ECHO_COST}э.`, 'ok'); SFX.money();
+          if (!RUN.hintFlags.firstRed) { RUN.hintFlags.firstRed = true; setTimeout(() => showHint('first-red'), 400); }
         }
       } else if (roll < 0.8) {
         if (Math.random() < 0.5) {
@@ -1348,6 +1381,7 @@ function doEchobeamer(c) {
       } else if (roll < 0.9) {
         S.player.res.warpEssence++;
         document.getElementById('res-warp')?.classList.remove('hidden');
+        if (!RUN.hintFlags.firstPurple) { RUN.hintFlags.firstPurple = true; setTimeout(() => showHint('first-purple'), 400); }
         addLog(`✅ Сегмент Босса. 💜 ВАРП-ЭССЕНЦИЯ! –${ECHO_COST}э.`, 'trigger'); SFX.purple();
       } else {
         addLog(`✅ Сегмент Босса. Тишина. –${ECHO_COST}э.`, 'info'); SFX.green();
@@ -1360,37 +1394,50 @@ function doEchobeamer(c) {
     }
     const dbl = S.player.doubleBet;
     if (dbl) { S.player.doubleBet = false; }
-    const amt = dbl ? 2 : 1;
+    const mult = _useAmplify();
+    const amt = (dbl ? 2 : 1) * mult;
     S.player.res.green += amt;
     addOI(dbl ? 2 : 1);
-    addLog(`✅ Зелёный. +${amt} эссенция +${amt} ОИ. –${ECHO_COST}э.${dbl?' [×2]':''}`, 'ok');
+    const ampTag = mult > 1 ? ` [⊕×${mult}]` : '';
+    addLog(`✅ Зелёный. +${amt} эссенция +${dbl?2:1} ОИ. –${ECHO_COST}э.${dbl?' [×2]':''}${ampTag}`, 'ok');
     SFX.green();
   } else if (eph.type === 'yellow') {
     const dbl = S.player.doubleBet;
     if (dbl) { S.player.doubleBet = false; }
-    S.player.res.yellow += dbl ? 2 : 1;
+    const mult = _useAmplify();
+    const yAmt = (dbl ? 2 : 1) * mult;
+    S.player.res.yellow += yAmt;
     const room = S.player.batMax - S.player.battery;
     const dblTag = dbl ? ' [×2]' : '';
+    const ampTag = mult > 1 ? ` [⊕×${mult}]` : '';
     if (room >= 4) {
       addEnergy(4, false);
-      addLog(`✅ Жёлтый. +4 энергии +${dbl?2:1} сгусток. Батарея: ${S.player.battery}/${S.player.batMax}.${dblTag}`, 'ok');
+      addLog(`✅ Жёлтый. +4 энергии +${yAmt} сгусток. Батарея: ${S.player.battery}/${S.player.batMax}.${dblTag}${ampTag}`, 'ok');
     } else if (room > 0) {
       addEnergy(room, false);
-      addLog(`✅ Жёлтый. Батарея почти полна. +${room} энергии +${dbl?2:1} сгусток.${dblTag}`, 'ok');
+      addLog(`✅ Жёлтый. Батарея почти полна. +${room} энергии +${yAmt} сгусток.${dblTag}${ampTag}`, 'ok');
     } else {
-      addLog(`✅ Жёлтый. Батарея полна. +${dbl?2:1} сгусток.${dblTag}`, 'ok');
+      addLog(`✅ Жёлтый. Батарея полна. +${yAmt} сгусток.${dblTag}${ampTag}`, 'ok');
     }
     SFX.yellow();
   } else if (eph.type === 'red') {
     eph.aggrActive = true;
-    if (Math.random() < 0.3) {
-      S.player.res.pearl++;
-      addLog(`✅ Красный. Агрессия! 30% → +1 жемчуг. –${ECHO_COST}э.`, 'ok');
+    const mult = _useAmplify();
+    if (mult > 1 || Math.random() < 0.3) {
+      const pearlAmt = mult > 1 ? mult : 1;
+      S.player.res.pearl += pearlAmt;
+      const ampTag = mult > 1 ? ` [⊕×${mult}]` : '';
+      addLog(`✅ Красный. Агрессия! +${pearlAmt} жемчуг. –${ECHO_COST}э.${ampTag}`, 'ok');
+      if (!RUN.hintFlags.firstRed && S.player.res.pearl > 0) {
+        RUN.hintFlags.firstRed = true;
+        setTimeout(() => showHint('first-red'), 400);
+      }
     } else {
       addLog(`✅ Красный. Агрессия активирована. –${ECHO_COST}э.`, 'warn');
     }
     SFX.red();
   } else if (eph.type === 'blue') {
+    const mult = _useAmplify();
     const msgs = [];
     if (Math.random() < 0.5) {
       if (!eph.fearActive) { eph.fearActive = true; eph.fearTimer = 5; }
@@ -1398,27 +1445,31 @@ function doEchobeamer(c) {
     } else {
       msgs.push('спокоен');
     }
-    if (Math.random() < 0.2) {
-      addOI(10);
-      msgs.push('💎 Ксилла +10 ОИ');
+    const xyllaChance = mult > 1 ? 0.4 : 0.2;
+    if (Math.random() < xyllaChance) {
+      const oiAmt = 10 * (mult > 1 ? mult : 1);
+      addOI(oiAmt);
+      msgs.push(`💎 Ксилла +${oiAmt} ОИ`);
     }
     const fearNow = msgs.includes('СТРАХ активирован!');
-    addLog(`✅ Синий. ${msgs.join(' ')} –${ECHO_COST}э.`, fearNow ? 'warn' : 'ok');
+    const ampTag = mult > 1 ? ` [⊕×${mult}]` : '';
+    addLog(`✅ Синий. ${msgs.join(' ')} –${ECHO_COST}э.${ampTag}`, fearNow ? 'warn' : 'ok');
     SFX.blue();
   } else if (eph.type === 'purple') {
+    const mult = _useAmplify();
     const roll = Math.random();
     if (roll < 0.4) {
       // 40%: случайный ресурс
       const rnd = Math.random();
       if (rnd < 0.33) {
-        S.player.res.green++;
-        addLog(`✅ Фиолетовый. +1 эссенция. –${ECHO_COST}э.`, 'ok'); SFX.green();
+        S.player.res.green += mult;
+        addLog(`✅ Фиолетовый. +${mult} эссенция. –${ECHO_COST}э.`, 'ok'); SFX.green();
       } else if (rnd < 0.66) {
-        S.player.res.yellow++;
-        addLog(`✅ Фиолетовый. +1 сгусток. –${ECHO_COST}э.`, 'ok'); SFX.yellow();
+        S.player.res.yellow += mult;
+        addLog(`✅ Фиолетовый. +${mult} сгусток. –${ECHO_COST}э.`, 'ok'); SFX.yellow();
       } else {
-        S.player.res.pearl++;
-        addLog(`✅ Фиолетовый. +1 жемчуг. –${ECHO_COST}э.`, 'ok'); SFX.red();
+        S.player.res.pearl += mult;
+        addLog(`✅ Фиолетовый. +${mult} жемчуг. –${ECHO_COST}э.`, 'ok'); SFX.red();
       }
     } else if (roll < 0.8) {
       // 40%: ±1 HP
@@ -1437,6 +1488,11 @@ function doEchobeamer(c) {
     } else if (roll < 0.9) {
       // 10%: Варп-эссенция
       S.player.res.warpEssence++;
+      document.getElementById('res-warp')?.classList.remove('hidden');
+      if (!RUN.hintFlags.firstPurple) {
+        RUN.hintFlags.firstPurple = true;
+        setTimeout(() => showHint('first-purple'), 400);
+      }
       addLog(`✅ Фиолетовый. 💜 ВАРП-ЭССЕНЦИЯ! –${ECHO_COST}э.`, 'trigger'); SFX.purple();
     } else {
       // 10%: ничего особого
@@ -1572,7 +1628,7 @@ function applyMembraneTrigger(eph, memCell) {
   SFX.victory();
 
   if (mType === 'M-01') {
-    // +3э; при переполнении → +1 лимит батареи
+    // Пульс: +3э; при переполнении → +1 лимит батареи
     if (S.player.battery + 3 > S.player.batMax) {
       S.player.batMax++;
       S.player.battery = Math.min(S.player.battery + 3, S.player.batMax);
@@ -1583,51 +1639,77 @@ function applyMembraneTrigger(eph, memCell) {
     }
 
   } else if (mType === 'M-02') {
-    // Волна: раскрыть строку мембраны
-    const row = memCell.y;
-    let revealed = 0;
-    for (let x = 0; x < S.gridW; x++) {
-      const nc = cell(x, row);
-      if (nc && !nc.vis && nc.eIdx === -1) {
-        nc.state = nc.resNum > 0 ? 'number' : 'empty'; nc.vis = true; revealed++;
-      }
-    }
-    addLog(`≋ Волна: раскрыта строка ${row + 1} (${revealed} клеток)`, 'trigger');
-
-  } else if (mType === 'M-03') {
-    // Сонар: раскрыть все числовые клетки
-    let revealed = 0;
-    for (let y = 0; y < S.gridH; y++)
+    // Волна: строка с максимальным кол-вом скрытых клеток, анимация слева
+    let bestRow = memCell.y, bestCount = 0;
+    for (let y = 0; y < S.gridH; y++) {
+      let cnt = 0;
       for (let x = 0; x < S.gridW; x++) {
         const nc = cell(x, y);
-        if (nc && !nc.vis && nc.eIdx === -1 && nc.resNum > 0) {
-          nc.state = 'number'; nc.vis = true; revealed++;
+        if (nc && !nc.vis && nc.eIdx === -1) cnt++;
+      }
+      if (cnt > bestCount) { bestCount = cnt; bestRow = y; }
+    }
+    const rowCells = [];
+    for (let x = 0; x < S.gridW; x++) {
+      const nc = cell(x, bestRow);
+      if (nc && !nc.vis && nc.eIdx === -1) rowCells.push(nc);
+    }
+    // Animate wave left-to-right
+    rowCells.forEach((nc, i) => {
+      setTimeout(() => {
+        nc.state = nc.resNum > 0 ? 'number' : 'empty'; nc.vis = true;
+        renderGrid();
+      }, i * 60);
+    });
+    SFX.wave();
+    addLog(`≋ Волна: строка ${bestRow + 1} — ${rowCells.length} клеток раскрыто`, 'trigger');
+
+  } else if (mType === 'M-03') {
+    // Сонар: квадрат 5×5 вокруг мембраны; попадание по эфемеру = Эхолуч
+    let revealed = 0, echoHit = 0;
+    for (let dy = -2; dy <= 2; dy++)
+      for (let dx = -2; dx <= 2; dx++) {
+        const nc = cell(memCell.x + dx, memCell.y + dy);
+        if (!nc || nc.vis) continue;
+        if (nc.eIdx !== -1) {
+          const hitEph = S.ephemers[nc.eIdx];
+          if (hitEph && !hitEph.done && hitEph.type !== 'boss') {
+            applyEchobeamEffect(hitEph, nc);
+            echoHit++;
+          }
+        } else {
+          nc.state = nc.resNum > 0 ? 'number' : 'empty'; nc.vis = true; revealed++;
         }
       }
-    addLog(`◎ Сонар: ${revealed} числовых клеток раскрыто`, 'trigger');
+    addLog(`◎ Сонар: 5×5 — ${revealed} кл. раскрыто, ${echoHit} эфемеров задет Эхолучом`, 'trigger');
 
   } else if (mType === 'M-04') {
-    // Усиление: следующие 3 Эхолуча бесплатны
-    S.player.freeEchobeams = (S.player.freeEchobeams || 0) + 3;
-    addLog(`⊕ Усиление: следующие ${S.player.freeEchobeams} Эхолуча — бесплатно!`, 'trigger');
+    // Усиление: следующие 3 Эхолуча по эфемерам дают ×2 (25% → ×4)
+    S.player.amplifyCharges = (S.player.amplifyCharges || 0) + 3;
+    addLog(`⊕ Усиление: следующие 3 Эхолуча усилены (×2, 25%→×4)!`, 'trigger');
 
   } else if (mType === 'M-05') {
-    // Исследование: +3 ОИ
+    // Исследование: +3 ОИ + подсветить до 3 сегментов
     addOI(3);
-    addLog(`✦ Исследование: +3 ОИ`, 'trigger');
+    const targets = S.ephemers.filter(e => !e.done && e.type !== 'boss' && e.scanned === 0 && e.opened === 0);
+    let hinted = 0;
+    if (targets.length > 0) {
+      const eph5 = targets[Math.floor(Math.random() * targets.length)];
+      const hiddenSegs = eph5.segs.filter(s => { const c = cell(s.x, s.y); return c && !c.vis; });
+      const count = Math.min(3, hiddenSegs.length);
+      hiddenSegs.sort(() => Math.random() - 0.5).slice(0, count).forEach(s => {
+        const c = cell(s.x, s.y); if (c) { c.droneHint = true; hinted++; }
+      });
+    }
+    addLog(`✦ Исследование: +3 ОИ${hinted > 0 ? ` + ${hinted} сегм. подсвечено` : ''}`, 'trigger');
 
   } else if (mType === 'M-06') {
-    // Щит: следующий штраф отменён
-    if (S.player.inventory.length < S.player.inventorySlots) {
-      S.player.inventory.push({ type: 'shield', hp: 1 });
-      addLog(`△ Щит: добавлен в инвентарь (1 удар)`, 'trigger');
-    } else {
-      addLog(`△ Щит: нет места в инвентаре — следующий штраф всё равно отменён`, 'trigger');
-      S.player.membraneShield = true;
-    }
+    // Защита: силовое поле — поглощает следующий удар (до щита)
+    S.player.membraneProtection = true;
+    addLog(`△ Защита: силовое поле активировано! Следующий удар поглощён.`, 'trigger');
 
   } else if (mType === 'M-07') {
-    // Эхолот: раскрыть 3 клетки с макс. числами
+    // Эхолот: раскрыть 3 клетки с макс. числами + 3 ОИ
     const numCells = [];
     for (let y = 0; y < S.gridH; y++)
       for (let x = 0; x < S.gridW; x++) {
@@ -1637,17 +1719,28 @@ function applyMembraneTrigger(eph, memCell) {
     numCells.sort((a, b) => b.resNum - a.resNum).slice(0, 3).forEach(nc => {
       nc.state = 'number'; nc.vis = true;
     });
-    addLog(`⊙ Эхолот: 3 клетки с макс. числами раскрыты`, 'trigger');
+    addOI(3);
+    addLog(`⊙ Эхолот: 3 клетки с макс. числами раскрыты + 3 ОИ`, 'trigger');
 
   } else if (mType === 'M-08') {
-    // Взрыв: раскрытие 3×3 + 2э
-    addEnergy(2, false);
+    // Взрыв: раскрытие 3×3 + 3э (с перегрузкой); Эхолуч-эффект на эфемерах
+    addEnergy(3, true);
+    let echoHit8 = 0;
     for (let dy = -1; dy <= 1; dy++)
       for (let dx = -1; dx <= 1; dx++) {
         const nc = cell(memCell.x + dx, memCell.y + dy);
-        if (nc && !nc.vis) explodeReveal(nc);
+        if (!nc || nc.vis) continue;
+        if (nc.eIdx !== -1) {
+          const hitEph = S.ephemers[nc.eIdx];
+          if (hitEph && !hitEph.done && hitEph.type !== 'boss') {
+            applyEchobeamEffect(hitEph, nc);
+            echoHit8++;
+          }
+        } else {
+          explodeReveal(nc);
+        }
       }
-    addLog(`✸ Взрыв: 3×3 раскрыто + 2э`, 'trigger');
+    addLog(`✸ Взрыв: 3×3 раскрыто + 3э${echoHit8 > 0 ? ` + ${echoHit8} Эхолуч-эффект` : ''}`, 'trigger');
 
   } else if (mType === 'M-09') {
     // Память: следующий Эфемер того же цвета — форма видна
@@ -1660,20 +1753,25 @@ function applyMembraneTrigger(eph, memCell) {
     addLog(`∞ Резонанс: следующая мембрана сработает дважды!`, 'trigger');
 
   } else if (mType === 'M-11') {
-    // Прозрение: 2 случайных эфемера → в Энциклопедию
+    // Прозрение: 2 случайных эфемера → в Энциклопедию + 1 варп-эссенция
     const unknowns = S.ephemers.filter(e => e.type !== 'boss' && !encyclopedia.has(e.name));
     unknowns.sort(() => Math.random() - 0.5).slice(0, 2).forEach(e => {
       encyclopedia.add(e.name);
       e.discovered = true;
     });
-    addLog(`◇ Прозрение: ${Math.min(2, unknowns.length)} эфемера добавлено в Энциклопедию`, 'trigger');
+    S.player.res.warpEssence = (S.player.res.warpEssence || 0) + 1;
+    document.getElementById('res-warp')?.classList.remove('hidden');
+    if (!RUN.hintFlags.firstPurple) {
+      RUN.hintFlags.firstPurple = true;
+      setTimeout(() => showHint('first-purple'), 400);
+    }
+    addLog(`◇ Прозрение: ${Math.min(2, unknowns.length)} эфемера в Энциклопедию + 1 варп-эссенция`, 'trigger');
 
   } else if (mType === 'M-12') {
-    // Регенерация: +1 HP; при макс. HP → +1 лимит HP
+    // Регенерация: +1 HP; при макс. HP → +10м
     if (S.player.hp >= S.player.hpMax) {
-      S.player.hpMax++;
-      S.player.hp++;
-      addLog(`♥ Регенерация: +1 лимит HP! (${S.player.hp}/${S.player.hpMax})`, 'trigger');
+      S.player.res.money += 10;
+      addLog(`♥ Регенерация: HP максимум — +10м вместо HP`, 'trigger');
     } else {
       S.player.hp++;
       addLog(`♥ Регенерация: +1 HP (${S.player.hp}/${S.player.hpMax})`, 'trigger');
@@ -1694,7 +1792,58 @@ function applyMembraneTrigger(eph, memCell) {
   }
 }
 
+// Helper: apply echobeam effect to a segment without spending battery
+// Used by M-03 (Сонар) and M-08 (Взрыв)
+function applyEchobeamEffect(eph, nc) {
+  eph.discovered = true;
+  nc.state = 'scanned'; nc.vis = true;
+  eph.scanned++;
+  S.stats.segsScanned++;
+  if (eph.type === 'green') {
+    S.player.res.green++;
+    addOI(1);
+    SFX.green();
+  } else if (eph.type === 'yellow') {
+    S.player.res.yellow++;
+    const room = S.player.batMax - S.player.battery;
+    if (room >= 4) addEnergy(4, false);
+    else if (room > 0) addEnergy(room, false);
+    SFX.yellow();
+  } else if (eph.type === 'red') {
+    eph.aggrActive = true;
+    if (Math.random() < 0.3) { S.player.res.pearl++; SFX.red(); }
+    else SFX.red();
+  } else if (eph.type === 'blue') {
+    if (Math.random() < 0.5 && !eph.fearActive) { eph.fearActive = true; eph.fearTimer = 5; }
+    SFX.blue();
+  } else if (eph.type === 'purple') {
+    if (Math.random() < 0.4) {
+      S.player.res.green++;
+    } else if (Math.random() < 0.5) {
+      S.player.hp = Math.min(S.player.hpMax, S.player.hp + 1);
+    } else {
+      S.player.res.warpEssence = (S.player.res.warpEssence || 0) + 1;
+      document.getElementById('res-warp')?.classList.remove('hidden');
+    }
+    SFX.purple();
+  }
+  if (nc.isMembrane) {
+    const revealed = eph.scanned + eph.opened;
+    if (revealed === eph.segs.length) {
+      eph.triggered = true;
+      applyMembraneTrigger(eph, nc);
+    }
+  }
+  checkEphDone(eph);
+}
+
 function takeDamage(n) {
+  // Защита (membrane protection) burns first, before inventory shield
+  if (S.player.membraneProtection) {
+    S.player.membraneProtection = false;
+    addLog(`△ Защита: силовое поле поглотило удар!`, 'ok');
+    return;
+  }
   if (S.player.membraneShield) {
     S.player.membraneShield = false;
     addLog(`△ Щит мембраны поглотил удар!`, 'ok');
@@ -1925,10 +2074,19 @@ function shopAction(action) {
 
 // ─── TRANSITIONS ──────────────────────────────────────────────────
 function onOverlayBtn() {
-  const ph = S.phase;
+  const ph  = S.phase;
+  const cfg = ROOM_CONFIGS[currentRoomIdx];
   if (ph === 'lost') { newGameRun(); return; }
   if (ph === 'boss-won' && currentRoomIdx >= ROOM_CONFIGS.length - 1) {
     newGameRun(); return;
+  }
+  // Warp-exit from boss: player didn't kill boss — send back to regenerated boss room
+  if (ph === 'escaped' && cfg.isBoss && S.warpExited) {
+    saveRoomToRun();
+    document.getElementById('overlay').classList.add('hidden');
+    addLog(`🚪 Варп-побег — Босс перегенерирован. Возврат в битву!`, 'warn');
+    startRoom(currentRoomIdx);  // regenerate same boss room
+    return;
   }
   if (currentRoomIdx < ROOM_CONFIGS.length - 1) {
     saveRoomToRun();
@@ -1971,10 +2129,15 @@ function renderAll() {
 
 function renderWarpBtn() {
   const btn = document.getElementById('btn-warp');
+  const exitBtn = document.getElementById('btn-exit-room');
   if (!btn) return;
-  const showWarp = (S.player?.res?.warpEssence > 0) && (S.warpSnapshot !== null);
-  btn.classList.toggle('hidden', !showWarp);
-  if (showWarp) btn.textContent = `💜 ВАРП (${S.player.res.warpEssence})`;
+  const cfg = ROOM_CONFIGS[currentRoomIdx];
+  const isBoss = cfg?.isBoss;
+  const warp = S.player?.res?.warpEssence || 0;
+  const cost = (RUN.warpUseCount || 0) + 1;
+  const canWarp = isBoss && !S.warpExited && warp >= cost && S.warpHistory && S.warpHistory.length > 0 && S.phase === 'playing';
+  btn.classList.toggle('hidden', !canWarp);
+  if (canWarp) btn.textContent = `💜 ВАРП (−${cost}э)`;
 }
 
 function renderResBar() {
@@ -2091,9 +2254,9 @@ function renderGrid() {
     }
   }
 
-  // Exit button: disabled in boss rooms until eyes are neutralized
+  // Exit button: disabled in boss rooms until eyes are neutralized or warp used
   const boss = S.ephemers[0];
-  const bossLocked = cfg.isBoss && !boss?.eyesNeutralized;
+  const bossLocked = cfg.isBoss && !boss?.eyesNeutralized && !S.warpExited;
   const exitBtn = document.getElementById('btn-exit-room');
   exitBtn.style.display  = 'inline-block';
   exitBtn.disabled       = bossLocked;
@@ -2110,8 +2273,9 @@ function renderToolCards() {
     'card-slot' + (S.tool === 'echobeamer' ? ' sel-echobeamer' : '') +
     (blocked === 1 ? ' slot-blocked' : '');
 
-  // Update echobeam cost display: free beams show =0э
+  // Update echobeam cost display: free beams show =0э, amplify shows ×2
   const free = S.player?.freeEchobeams ?? 0;
+  const amp  = S.player?.amplifyCharges ?? 0;
   const echoCard = document.getElementById('card-1');
   const costEl = echoCard?.querySelector('.card-cost');
   if (costEl) {
@@ -2121,6 +2285,23 @@ function renderToolCards() {
     } else {
       costEl.textContent = `–${ECHO_COST}э`;
       costEl.style.color = '';
+    }
+  }
+  // Amplify visual: card glows red when active
+  if (echoCard) {
+    echoCard.classList.toggle('amplify-active', amp > 0);
+    const ampBadge = echoCard.querySelector('.amplify-badge');
+    if (amp > 0) {
+      if (!ampBadge) {
+        const badge = document.createElement('div');
+        badge.className = 'amplify-badge';
+        badge.textContent = `⊕×${amp}`;
+        echoCard.appendChild(badge);
+      } else {
+        ampBadge.textContent = `⊕×${amp}`;
+      }
+    } else if (ampBadge) {
+      ampBadge.remove();
     }
   }
 
@@ -2184,15 +2365,30 @@ function renderToolCards() {
 }
 
 function useWarp() {
-  const snap = S.warpSnapshot;
-  if (!snap || S.player.res.warpEssence <= 0) return;
   if (S.phase !== 'playing') return;
-  const newEssence = S.player.res.warpEssence - 1;
+  if (S.warpExited) return;
+  const cost = (RUN.warpUseCount || 0) + 1;
+  if (!S.warpHistory || S.warpHistory.length === 0) {
+    addLog(`💜 ВАРП: нет сохранённых ходов для отката`, 'warn');
+    return;
+  }
+  if ((S.player.res.warpEssence || 0) < cost) {
+    addLog(`💜 ВАРП: нужно ${cost} эссенции (у вас ${S.player.res.warpEssence || 0})`, 'warn');
+    renderLog();
+    return;
+  }
+  const rollback = Math.min(cost, S.warpHistory.length);
+  const snap = S.warpHistory[rollback - 1];
+  const newEssence = S.player.res.warpEssence - cost;
+  RUN.warpUseCount = (RUN.warpUseCount || 0) + 1;
   S = JSON.parse(JSON.stringify(snap));
   S.newEmptyCells = new Set();
+  S.warpSnapshot = null;
+  S.warpHistory = [];
   S.player.res.warpEssence = newEssence;
-  S.warpSnapshot = null;  // no double-warp
-  addLog(`💜 ВАРП! Последний ход отменён. Варп-эссенции: ${newEssence}`, 'trigger');
+  S.warpExited = true;   // exit is now unlocked (but boss not killed)
+  addLog(`💜 ВАРП! Откат на ${rollback} ${rollback===1?'ход':'ходов'}. Потрачено ${cost} эссенции.`, 'trigger');
+  addLog(`⚠ Босс не повержён — выход вернёт вас обратно к битве!`, 'warn');
   SFX.purple();
   renderAll();
 }
@@ -2303,6 +2499,13 @@ function renderHP() {
     h.className = 'heart ' + (i < S.player.hp ? 'full' : 'empty');
     h.textContent = i < S.player.hp ? '♥' : '♡';
     el.appendChild(h);
+  }
+  if (S.player.membraneProtection) {
+    const shield = document.createElement('span');
+    shield.className = 'heart protection-bubble';
+    shield.textContent = '🫧';
+    shield.title = 'Защита: следующий удар поглощён';
+    el.appendChild(shield);
   }
 }
 
