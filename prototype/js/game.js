@@ -26,7 +26,7 @@ const MEMBRANE_DEFS = {
   'M-09': { name: 'Память',       symbol: '◈', desc: 'Форма следующего эфемера того же цвета видна' },
   'M-10': { name: 'Резонанс',     symbol: '∞', desc: 'Следующий Trigger срабатывает дважды' },
   'M-11': { name: 'Прозрение',    symbol: '◇', desc: '2 эфемера в Энциклопедию + 1 варп-эссенция' },
-  'M-12': { name: 'Регенерация',  symbol: '♥', desc: '+1 HP; при макс. HP → +10м' },
+  'M-12': { name: 'Регенерация',  symbol: '♥', desc: '+1 HP; при макс. HP → +1 лимит HP; при лимите 7 → +10м' },
 };
 function assignColorMembranes() {
   const pool = Object.keys(MEMBRANE_DEFS);
@@ -1773,13 +1773,17 @@ function applyMembraneTrigger(eph, memCell) {
     addLog(`◇ Прозрение: ${Math.min(2, unknowns.length)} эфемера в Энциклопедию + 1 варп-эссенция`, 'trigger');
 
   } else if (mType === 'M-12') {
-    // Регенерация: +1 HP; при макс. HP → +10м
-    if (S.player.hp >= S.player.hpMax) {
-      S.player.res.money += 10;
-      addLog(`♥ Регенерация: HP максимум — +10м вместо HP`, 'trigger');
-    } else {
+    // Регенерация: +1 HP; при макс. HP → +1 лимит HP; если лимит уже 7 → +10м
+    if (S.player.hp < S.player.hpMax) {
       S.player.hp++;
       addLog(`♥ Регенерация: +1 HP (${S.player.hp}/${S.player.hpMax})`, 'trigger');
+    } else if (S.player.hpMax < 7) {
+      S.player.hpMax++;
+      S.player.hp++;
+      addLog(`♥ Регенерация: +1 лимит HP! (${S.player.hp}/${S.player.hpMax})`, 'trigger');
+    } else {
+      S.player.res.money += 10;
+      addLog(`♥ Регенерация: лимит HP максимален (7) — +10м`, 'trigger');
     }
 
   } else {
