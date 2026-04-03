@@ -996,7 +996,7 @@ function tickRedAggression() {
     eph.aggrTimer--;
     if (eph.aggrTimer <= 0) {
       eph.aggrTimer = RED_AGGR_INTERVAL;
-      const nm = eph.discovered ? eph.name : 'Красный эфемер';
+      const nm = eph.discovered ? `Эфемер «${eph.name}»` : 'Красный эфемер';
       addLog(`🔴 ${nm} АТАКУЕТ! –1 HP!`, 'err');
       S.stats.dmgEphemeral++;
       takeDamage(1);
@@ -1035,7 +1035,7 @@ function blueEscape(eph) {
   });
   encyclopedia.add(eph.name);
   const stolen = stealResources(5);
-  addLog(`💙 ${eph.discovered ? eph.name.toUpperCase() : 'СИНИЙ'} СБЕЖАЛ! –${stolen} ресурсов похищено!`, 'err');
+  addLog(`💙 ЭФЕМЕР «${eph.discovered ? eph.name : 'СИНИЙ'}» СБЕЖАЛ! –${stolen} ресурсов похищено!`, 'err');
   SFX.warn();
 }
 
@@ -1047,7 +1047,7 @@ function tickBlueEphemers() {
     if (eph.fearTimer <= 0) {
       blueEscape(eph);
     } else if (eph.fearTimer <= 3) {
-      const nm = eph.discovered ? eph.name : 'Синий эфемер';
+      const nm = eph.discovered ? `Эфемер «${eph.name}»` : 'Синий эфемер';
       addLog(`💙 ${nm} испуган! Сбежит через ${eph.fearTimer} ходов!`, 'warn');
     }
   });
@@ -1616,36 +1616,36 @@ function checkEphDone(eph) {
     }
     if (shpCount % 3 === 0) {
       addOI(3);
-      addLog(`🏅 ${shpCount} «${eph.name}» исследовано → +3 ОИ!`, 'trigger');
+      addLog(`🏅 Эфемер «${eph.name}» исследован ${shpCount} раз → +3 ОИ!`, 'trigger');
     }
 
     if (eph.type === 'green') {
       S.player.res.money += clean ? 10 : 5;
       addOI(clean ? 5 : 2);
       SFX.money();
-      addLog(`🏁 ${eph.name} завершён. ${clean ? '✦ Чисто! +10м +5 ОИ' : `${eph.opened} потеряно. +5м +2 ОИ`}`, 'ok');
+      addLog(`🏁 Эфемер «${eph.name}» завершён. ${clean ? '✦ Чисто! +10м +5 ОИ' : `${eph.opened} потеряно. +5м +2 ОИ`}`, 'ok');
     } else if (eph.type === 'yellow') {
       S.player.res.money += clean ? 10 : 5;
       addOI(clean ? 5 : 2);
       SFX.money();
-      addLog(`🏁 ${eph.name} завершён. ${clean ? '✦ Чисто! +10м +5 ОИ' : `${eph.opened} потеряно. +5м +2 ОИ`}`, 'ok');
+      addLog(`🏁 Эфемер «${eph.name}» завершён. ${clean ? '✦ Чисто! +10м +5 ОИ' : `${eph.opened} потеряно. +5м +2 ОИ`}`, 'ok');
     } else if (eph.type === 'red') {
       S.player.res.money += clean ? 8 : 3;
       addOI(clean ? 3 : 1);
       SFX.money();
-      addLog(`🏁 ${eph.name} завершён. ${clean ? '🔴 Чисто! +8м +3 ОИ' : `+3м +1 ОИ`}`, 'ok');
+      addLog(`🏁 Эфемер «${eph.name}» завершён. ${clean ? '🔴 Чисто! +8м +3 ОИ' : `+3м +1 ОИ`}`, 'ok');
     } else if (eph.type === 'blue') {
       if (!eph.escaped) {
         S.player.res.money += clean ? 10 : 5;
         addOI(clean ? 5 : 2);
         SFX.money();
-        addLog(`🏁 ${eph.name} завершён. ${clean ? '💙 Чисто! +5 ОИ +10м' : `+2 ОИ +5м`}`, 'ok');
+        addLog(`🏁 Эфемер «${eph.name}» завершён. ${clean ? '💙 Чисто! +5 ОИ +10м' : `+2 ОИ +5м`}`, 'ok');
       }
     } else if (eph.type === 'purple') {
       S.player.res.money += clean ? 12 : 4;
       addOI(clean ? 6 : 2);
       SFX.money();
-      addLog(`🏁 ${eph.name} завершён. ${clean ? '💜 Чисто! +6 ОИ +12м' : '+2 ОИ +4м'}`, 'ok');
+      addLog(`🏁 Эфемер «${eph.name}» завершён. ${clean ? '💜 Чисто! +6 ОИ +12м' : '+2 ОИ +4м'}`, 'ok');
       // Inversion lifts after completion
       tickPurpleInversion();
     }
@@ -3249,7 +3249,7 @@ function showDecipherModal(eph) {
 
   const body = document.getElementById('decipher-body');
   body.innerHTML = `
-    <p>Вы удачно исследовали <strong>${typeNames[eph.type]} «${eph.name}»</strong>,<br>
+    <p>Вы удачно исследовали <strong>${typeNames[eph.type]} Эфемер «${eph.name}»</strong>,<br>
     его сигнатура внесена в базы данных вашего сканера.</p>
     <p>Расшифровка раскроет полную информацию об образце.</p>`;
 
@@ -3273,7 +3273,7 @@ function showDecipherModal(eph) {
     document.getElementById('decipher-overlay').classList.add('hidden');
     skip.removeEventListener('click', onSkip);
     payBtn.removeEventListener('click', onPay);
-    addLog(`🔬 ${eph.name} расшифрован! (−${cost} ОИ)`, 'trigger');
+    addLog(`🔬 Эфемер «${eph.name}» расшифрован! (−${cost} ОИ)`, 'trigger');
     renderAll();
     showEncyclopedia(eph);
   };
