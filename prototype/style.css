@@ -166,10 +166,9 @@ body {
 }
 
 /* ─── KEYS BAR ───────────────────────────────────── */
-#keys-bar { font-size: 13px; color: var(--dim); text-align: center; letter-spacing: 0; white-space: nowrap; overflow: hidden; }
+#keys-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; align-items: center; font-size: 13px; color: var(--dim); letter-spacing: 0; }
+.slot-key-hint { text-align: center; font-size: 11px; color: var(--dim); }
 kbd { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-family: 'Courier New', monospace; font-size: 12px; }
-/* ─── CARD KEY HINT ─────────────────────────────── */
-.card-key { position: absolute; top: 3px; left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--dim); background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 0 5px; pointer-events: none; z-index: 1; }
 /* ─── COMBO LAMPS ────────────────────────────────── */
 #combo-lamps {
   display: flex;
@@ -193,6 +192,7 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
   background: none; border: 1px solid var(--red); color: var(--red);
   padding: 4px 12px; font-family: 'Courier New', monospace; font-size: 14px;
   letter-spacing: 1px; border-radius: 3px; cursor: pointer; transition: all .15s;
+  justify-self: end;
 }
 #btn-exit-room:hover { background: rgba(231,76,60,.12); }
 
