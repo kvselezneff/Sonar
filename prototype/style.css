@@ -171,9 +171,9 @@ body {
   grid-template-columns: repeat(4, 1fr);
   column-gap: 7px;
   row-gap: 5px;
-  align-items: center;
+  /* default align-items: stretch — все слоты в одной строке одинаковой высоты */
 }
-.slot-key-hint { text-align: center; font-size: 14px; color: var(--dim); }
+.slot-key-hint { text-align: center; font-size: 14px; color: var(--dim); align-self: center; }
 kbd { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-family: 'Courier New', monospace; font-size: 13px; }
 /* ─── COMBO LAMPS ────────────────────────────────── */
 #combo-lamps {
@@ -197,6 +197,7 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
 #btn-exit-room {
   grid-column: 3 / 5;
   justify-self: end;
+  align-self: center;
   background: none; border: 1px solid var(--red); color: var(--red);
   padding: 4px 12px; font-family: 'Courier New', monospace; font-size: 14px;
   letter-spacing: 1px; border-radius: 3px; cursor: pointer; transition: all .15s;
