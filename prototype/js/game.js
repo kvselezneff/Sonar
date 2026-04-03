@@ -213,6 +213,7 @@ function setHintsGlobal(on) {
 
 function clearHintArchive() {
   Object.keys(HINTS_DATA).forEach(id => localStorage.removeItem('ech_hint_seen_' + id));
+  Object.keys(MEMBRANE_DEFS).forEach(k => localStorage.removeItem('ech_mem_seen_' + k));
 }
 
 function hintIsDismissed(id) {
@@ -3328,7 +3329,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (S.phase !== 'playing') return;
     const k = e.key.toLowerCase();
     if (k === 'l') { S.tool = 'locator';    renderToolCards(); renderGrid(); return; }
-    if (k === 'e') { S.tool = 'echobeamer'; renderToolCards(); renderGrid(); return; }
+    if (k === 'q') { S.tool = 'echobeamer'; renderToolCards(); renderGrid(); return; }
     // Inventory slot hotkeys: W E R T = slots 0-3, S D F G = slots 4-7
     const row1 = ['w','e','r','t'];
     const row2 = ['s','d','f','g'];
