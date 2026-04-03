@@ -885,7 +885,7 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
   padding: 7px 24px;
   cursor: pointer;
   font-family: 'Courier New', monospace;
-  font-size: 15px;
+  font-size: 20px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
   white-space: nowrap;
@@ -1112,7 +1112,7 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
   color: var(--dim);
   padding: 8px 22px;
   font-family: 'Courier New', monospace;
-  font-size: 14px;
+  font-size: 19px;
   letter-spacing: 1px;
   border-radius: 3px;
   cursor: pointer;
@@ -1124,7 +1124,7 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
   color: var(--teal);
   padding: 8px 22px;
   font-family: 'Courier New', monospace;
-  font-size: 14px;
+  font-size: 19px;
   letter-spacing: 1px;
   border-radius: 3px;
   cursor: pointer;

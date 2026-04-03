@@ -1216,7 +1216,15 @@ function applyTool(x, y) {
   }
   checkWinLose();
   if (S.phase !== 'playing' && S.phase !== 'countdown') {
-    startCountdown(S.phase);
+    const decipherOpen = !document.getElementById('decipher-overlay').classList.contains('hidden');
+    if (decipherOpen) {
+      // Defer countdown until player closes decipher modal
+      S.decipherPendingPhase = S.phase;
+      S.phase = 'playing';
+      renderAll();
+    } else {
+      startCountdown(S.phase);
+    }
   } else {
     renderAll();
   }
@@ -2061,12 +2069,11 @@ function showShopOverlay(nextRoomIdx) {
   document.getElementById('shop-overlay').classList.remove('hidden');
   SFX.shop();
   renderShopOverlay();
-  // Shop lore: show message #1 on 1st visit, #2 on 2nd, #3 on 3rd
-  shopLoreCount++;
-  localStorage.setItem('ech_shop_visits', shopLoreCount);
-  if (shopLoreCount <= 3) {
-    setTimeout(() => showHint('shop-' + shopLoreCount), 500);
-  }
+  // Shop lore: show next unseen narrative hint (shop-1, shop-2, shop-3)
+  const nextShopHint = ['shop-1','shop-2','shop-3'].find(
+    id => !localStorage.getItem('ech_hint_seen_' + id) && !hintIsDismissed(id)
+  );
+  if (nextShopHint) setTimeout(() => showHint(nextShopHint), 500);
   // First blue eph hint
   if (RUN.hintFlags.firstBlue && !RUN.hintFlags.firstBlueShown) {
     RUN.hintFlags.firstBlueShown = true;
@@ -3271,6 +3278,11 @@ function showDecipherModal(eph) {
     document.getElementById('decipher-overlay').classList.add('hidden');
     skip.removeEventListener('click', onSkip);
     payBtn.removeEventListener('click', onPay);
+    if (S.decipherPendingPhase) {
+      const p = S.decipherPendingPhase;
+      S.decipherPendingPhase = null;
+      startCountdown(p);
+    }
   };
   const onPay = () => {
     if (S.player.res.oi < cost) return;
@@ -3284,8 +3296,16 @@ function showDecipherModal(eph) {
       RUN.hintFlags.firstDecipher = true;
       setTimeout(() => showHint('first-decipher'), 600);
     }
-    renderAll();
-    showEncyclopedia(eph);
+    if (S.decipherPendingPhase) {
+      const p = S.decipherPendingPhase;
+      S.decipherPendingPhase = null;
+      renderAll();
+      showEncyclopedia(eph);
+      startCountdown(p);
+    } else {
+      renderAll();
+      showEncyclopedia(eph);
+    }
   };
   skip.addEventListener('click', onSkip);
   payBtn.addEventListener('click', onPay);
