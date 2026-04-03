@@ -3328,15 +3328,15 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', e => {
     if (S.phase !== 'playing') return;
     const k = e.key.toLowerCase();
-    if (k === 'l') { S.tool = 'locator';    renderToolCards(); renderGrid(); return; }
-    if (k === 'q') { S.tool = 'echobeamer'; renderToolCards(); renderGrid(); return; }
-    // Inventory slot hotkeys: W E R T = slots 0-3, S D F G = slots 4-7
-    const row1 = ['w','e','r','t'];
+    if (k === 'w') { S.tool = 'locator';    renderToolCards(); renderGrid(); return; }
+    if (k === 'e') { S.tool = 'echobeamer'; renderToolCards(); renderGrid(); return; }
+    // Inventory slot hotkeys: R T = slots 0-1, S D F G = slots 2-5
+    const row1 = ['r','t'];
     const row2 = ['s','d','f','g'];
     const i1 = row1.indexOf(k);
     if (i1 >= 0) { useInventorySlot(i1); return; }
     const i2 = row2.indexOf(k);
-    if (i2 >= 0) { useInventorySlot(i2 + 4); return; }
+    if (i2 >= 0) { useInventorySlot(i2 + 2); return; }
   });
   document.getElementById('btn-overlay-action').addEventListener('click', onOverlayBtn);
   document.getElementById('btn-exit-room').addEventListener('click', exitRoom);

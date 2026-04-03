@@ -166,8 +166,8 @@ body {
 }
 
 /* ─── KEYS BAR ───────────────────────────────────── */
-#keys-bar { font-size: 15px; color: var(--dim); text-align: center; letter-spacing: 1px; }
-kbd { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px; font-family: 'Courier New', monospace; font-size: 15px; }
+#keys-bar { font-size: 13px; color: var(--dim); text-align: center; letter-spacing: 0; white-space: nowrap; overflow: hidden; }
+kbd { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-family: 'Courier New', monospace; font-size: 12px; }
 /* ─── COMBO LAMPS ────────────────────────────────── */
 #combo-lamps {
   display: flex;
@@ -327,7 +327,7 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
 
 /* ─── LOG ────────────────────────────────────────── */
 #log-entries { display: flex; flex-direction: column; gap: 3px; }
-.log-line { font-size: 15px; line-height: 1.4; padding: 2px 0; border-bottom: 1px solid #09121c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.log-line { font-size: 15px; line-height: 1.4; padding: 2px 0; border-bottom: 1px solid #09121c; white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; }
 .log-info    { color: var(--dim); }
 .log-ok      { color: var(--green); }
 .log-warn    { color: var(--yellow); }
