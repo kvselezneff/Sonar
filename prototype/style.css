@@ -168,6 +168,8 @@ body {
 /* ─── KEYS BAR ───────────────────────────────────── */
 #keys-bar { font-size: 13px; color: var(--dim); text-align: center; letter-spacing: 0; white-space: nowrap; overflow: hidden; }
 kbd { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-family: 'Courier New', monospace; font-size: 12px; }
+/* ─── CARD KEY HINT ─────────────────────────────── */
+.card-key { position: absolute; top: 3px; left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--dim); background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 0 5px; pointer-events: none; z-index: 1; }
 /* ─── COMBO LAMPS ────────────────────────────────── */
 #combo-lamps {
   display: flex;
@@ -206,7 +208,8 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
   border-radius: 6px;
   cursor: pointer;
   transition: all .15s;
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
   user-select: none;
   outline: none;
   caret-color: transparent;

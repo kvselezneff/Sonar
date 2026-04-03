@@ -99,10 +99,11 @@
       </div>
       <!-- Boss bar — content rendered dynamically by JS -->
       <div id="boss-bar" class="hidden"></div>
-      <div id="keys-bar"><kbd>W</kbd> Локатор &nbsp; <kbd>E</kbd> Эхолуч &nbsp;&nbsp; <button id="btn-exit-room">🚪 ВЫЙТИ</button></div>
+      <div id="keys-bar"><button id="btn-exit-room">🚪 УЙТИ ИЗ КОМНАТЫ</button></div>
       <!-- Tool card slots -->
       <div id="tool-row">
         <div class="card-slot" id="card-0" data-tool="locator">
+          <div class="card-key">W</div>
           <div class="card-inner">
             <svg class="card-art" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
               <circle cx="32" cy="32" r="26" fill="none" stroke="#4ecdc4" stroke-width="0.4" opacity=".15"/>
@@ -122,6 +123,7 @@
           </div>
         </div>
         <div class="card-slot" id="card-1" data-tool="echobeamer">
+          <div class="card-key">E</div>
           <div class="card-inner">
             <svg class="card-art" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
               <circle cx="16" cy="32" r="5" fill="#f0d060"/>
