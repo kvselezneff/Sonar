@@ -195,10 +195,11 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
 }
 
 #btn-exit-room {
+  grid-column: 3 / 5;
+  justify-self: end;
   background: none; border: 1px solid var(--red); color: var(--red);
   padding: 4px 12px; font-family: 'Courier New', monospace; font-size: 14px;
   letter-spacing: 1px; border-radius: 3px; cursor: pointer; transition: all .15s;
-  justify-self: end;
 }
 #btn-exit-room:hover { background: rgba(231,76,60,.12); }
 
