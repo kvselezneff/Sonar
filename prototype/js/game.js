@@ -62,6 +62,7 @@ const EQUIPMENT_DB = {
   institute: {
     standard: [
       { id: 'I-05', name: 'Архивный запрос', type: 'consumable',price: 50,  desc: 'Открывает описание 2 неизвестных эфемеров' },
+      { id: 'I-07', name: 'Контейнер для Ксилла', type: 'passive', price: 500, desc: 'Следующий Ксилл из синего эфемера хранится в контейнере. Вернитесь в магазин с Ксиллом — победа.' },
     ],
     pool: [
       { id: 'I-01', name: 'Датчик слежения',type: 'passive',   price: 65,  desc: '+1 ОИ каждые 5 ходов. Побег → +5 ОИ.', wip: true },
@@ -80,7 +81,7 @@ const EQUIPMENT_DB = {
       { id: 'BM-02', name: 'Контрабандный скан',type:'tool',   price: 75,  desc: 'Скан (3э), ресурс без цветовых эффектов', wip: true },
       { id: 'BM-03', name: 'Детонатор',     type: 'tool',      price: 50,  desc: 'Взрыв жёлтого 3×3+2э без штрафа (2э)', wip: true },
       { id: 'BM-05', name: 'Фальшивый след',type: 'consumable',price: 45,  desc: 'Следующий штраф → –5 ОИ вместо –1 HP' },
-      { id: 'BM-06', name: 'Резервуар ксиллы',type:'passive',  price: 100, desc: 'Хранит до 3 кристаллов ксиллы. 80м/шт.', wip: true },
+      { id: 'BM-06', name: 'Резервуар Ксилла', type:'passive',  price: 100, desc: 'Хранит до 3 кристаллов Ксилла. 80м/шт.', wip: true },
     ],
   },
 };
@@ -161,6 +162,30 @@ const HINTS_DATA = {
     type: 'classified',
     text: 'Спустя 12 лет сбора и анализа данных были разработаны методики отбора исследователей с особыми биологическими характеристиками. Работа по их поиску была поручена Госпиталю [ЦЕНЗУРА], с которой его сотрудники блестяще справились. Вы — один из первой десятки участников нового витка глубоких исследований Эфира.',
   },
+  'first-hostile': {
+    label: 'ВРАЖДЕБНЫЙ СЕКТОР',
+    clearance: null,
+    type: 'glitch',
+    lines: [
+      'Эхо-Камера фиксирует аномалию.',
+      '',
+      'Некоторые секторы Эфира заражены Боссом — применение Локатора в таких секторах вызывает немедленное ранение.',
+      '',
+      'Избегайте клеток, отмеченных символом ☠. Используйте Эхолуч для безопасного исследования.',
+    ],
+  },
+  'first-emi': {
+    label: 'ЭМИ-ИМПУЛЬС',
+    clearance: 2,
+    type: 'normal',
+    text: 'Эфириал-Босс сгенерировал электромагнитный импульс. ЭМИ нарушает работу снаряжения — может случайно зарядить или разрядить вашу батарею, а также временно заблокировать один из слотов инвентаря. Следите за предупреждениями и планируйте ресурсы.',
+  },
+  'shop-blue': {
+    label: 'ПРИОРИТЕТ ИССЛЕДОВАНИЙ',
+    clearance: 2,
+    type: 'classified',
+    text: 'Голубой Ксилл – это Грааль, который содержит все тайны Эфира. Завладеть им – конечная цель исследований. Сделайте всё возможное, чтобы он оказался в руках человечества.',
+  },
   'shop-3': {
     label: 'КОММЕРЧЕСКАЯ ДИРЕКТИВА — СОВ. СЕКРЕТНО',
     clearance: 3,
@@ -179,8 +204,15 @@ function hintsGlobalOn() {
 function setHintsGlobal(on) {
   localStorage.setItem('ech_hints_global', on ? '1' : '0');
   if (on) {
-    Object.keys(HINTS_DATA).forEach(id => localStorage.removeItem('ech_hint_off_' + id));
+    Object.keys(HINTS_DATA).forEach(id => {
+      localStorage.removeItem('ech_hint_off_' + id);
+      localStorage.removeItem('ech_hint_seen_' + id);
+    });
   }
+}
+
+function clearHintArchive() {
+  Object.keys(HINTS_DATA).forEach(id => localStorage.removeItem('ech_hint_seen_' + id));
 }
 
 function hintIsDismissed(id) {
@@ -259,7 +291,7 @@ function closeHint() {
   overlay.classList.add('hidden');
 }
 
-const ARCHIVE_ORDER = ['intro','first-empty','first-number','first-echo','first-green','first-membrane','first-red','first-purple','boss-appear','shop-1','shop-2','shop-3'];
+const ARCHIVE_ORDER = ['intro','first-empty','first-number','first-echo','first-green','first-membrane','first-red','first-purple','boss-appear','first-hostile','first-emi','shop-1','shop-2','shop-3','shop-blue'];
 
 function openArchive() {
   const overlay = document.getElementById('archive-overlay');
@@ -287,6 +319,25 @@ function openArchive() {
     }
     list.appendChild(item);
   });
+  // Membrane narrative section
+  const memKeys = Object.keys(MEMBRANE_DEFS);
+  const seenMems = memKeys.filter(k => localStorage.getItem('ech_mem_seen_' + k));
+  if (seenMems.length > 0) {
+    const sep = document.createElement('div');
+    sep.className = 'archive-item';
+    sep.innerHTML = `<div class="archive-item-hdr"><span class="archive-item-title">── ОТЧЁТЫ О МЕМБРАНАХ ──</span></div>`;
+    list.appendChild(sep);
+    seenMems.forEach(mKey => {
+      const data = JSON.parse(localStorage.getItem('ech_mem_seen_' + mKey));
+      const item = document.createElement('div');
+      item.className = 'archive-item';
+      const [org, text] = data.narrative && data.narrative.includes(': ') ? data.narrative.split(': ', 2) : ['', data.narrative ?? ''];
+      item.innerHTML =
+        `<div class="archive-item-hdr"><span class="archive-item-title">${data.label}</span><span class="archive-item-ud">УД:2</span></div>` +
+        `<div class="archive-item-body"><em>${data.desc}</em>${org ? `<br><br><strong>${org}:</strong> ${text}` : ''}</div>`;
+      list.appendChild(item);
+    });
+  }
   overlay.classList.remove('hidden');
 }
 
@@ -296,7 +347,7 @@ const EPH_EFFECTS_ECHO = {
   green:  'Эхолуч: +1 эссенция, +1 ОИ',
   yellow: 'Эхолуч: +4 энергии (без перегрузки), +1 сгусток',
   red:    'Эхолуч: агрессия + 30% → жемчуг',
-  blue:   'Эхолуч: 50% страх (5 ходов) + 20% → ксилла (+10 ОИ)',
+  blue:   'Эхолуч: 50% страх (5 ходов) + 20% → Ксилл (+10 ОИ)',
   purple: 'Эхолуч: ресурс / ±1 HP / 10% → Варп-материя',
 };
 // Shown only after Locator was used on this ephemer (or if known from prev run)
@@ -307,6 +358,8 @@ const EPH_EFFECTS_LOC = {
   blue:   'Локатор: испугать (5 ходов до побега)',
   purple: 'Локатор: ИНВЕРСИЯ (пустые = –1 энергии)',
 };
+
+const DECIPHER_COSTS = { green: 10, yellow: 15, red: 25, purple: 40, blue: 75 };
 
 // ─── BOSS SHAPES ──────────────────────────────────────────────────
 // Boss 1: «Медленный Пульс» — 24 сег., 2 Глаза
@@ -587,8 +640,11 @@ function initRun() {
     colorMembranes:     assignColorMembranes(),
     colorCounts: { green: 0, yellow: 0, red: 0, blue: 0, purple: 0 },
     shapeCounts: {},
-    hintFlags: { firstEmpty: false, firstNumber: false, firstEcho: false, firstGreen: false, firstMembrane: false, firstRed: false, firstPurple: false },
+    hintFlags: { firstEmpty: false, firstNumber: false, firstEcho: false, firstGreen: false, firstMembrane: false, firstRed: false, firstPurple: false, firstHostile: false, firstEmi: false, firstBlue: false, firstBlueShown: false },
     warpUseCount: 0,
+    hasXyllContainer: false,
+    xyllInContainer:  false,
+    loopCount:        0,
     stats: {
       totalTurns:     0,
       emptyCells:     0,
@@ -657,9 +713,6 @@ function startRoom(roomIdx) {
     invertActive:    false,
     freezeActive:    false,
     freezeTargets:   [],
-    warpSnapshot:    null,
-    warpHistory:     [],
-    warpExited:      false,
     stats: {
       emptyCells:   0,
       numberCells:  0,
@@ -1056,6 +1109,10 @@ function triggerEMI() {
   addLog(msg, dmg ? 'err' : 'warn');
   addLog(`🔒 ${slotNames[S.emiBlockedSlot]} заблокирован на 1 ход!`, 'warn');
   SFX.emi();
+  if (!RUN.hintFlags.firstEmi) {
+    RUN.hintFlags.firstEmi = true;
+    setTimeout(() => showHint('first-emi'), 600);
+  }
 }
 
 function triggerPulse() {
@@ -1109,6 +1166,10 @@ function triggerPulse() {
   }
   addLog(`⚡ ПУЛЬС! ${count} клетки враждебны!`, 'err');
   SFX.pulse();
+  if (!RUN.hintFlags.firstHostile && S.hostileCells.length > 0) {
+    RUN.hintFlags.firstHostile = true;
+    setTimeout(() => showHint('first-hostile'), 600);
+  }
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────
@@ -1116,18 +1177,11 @@ function addOI(n) { S.player.res.oi += n; S.stats.oiEarned += n; SFX.oi(); }
 
 // ─── TOOL APPLICATION ─────────────────────────────────────────────
 function deepCloneS() {
-  const savedSet   = S.newEmptyCells;
-  const savedSnap  = S.warpSnapshot;
-  const savedHist  = S.warpHistory;
-  S.newEmptyCells  = [...savedSet];
-  S.warpSnapshot   = null;  // don't serialize snapshot recursively
-  S.warpHistory    = [];    // don't serialize history recursively (exponential growth!)
-  const clone      = JSON.parse(JSON.stringify(S));
-  S.newEmptyCells  = savedSet;
-  S.warpSnapshot   = savedSnap;
-  S.warpHistory    = savedHist;
+  const savedSet  = S.newEmptyCells;
+  S.newEmptyCells = [...savedSet];
+  const clone     = JSON.parse(JSON.stringify(S));
+  S.newEmptyCells = savedSet;
   clone.newEmptyCells = [];
-  clone.warpHistory   = [];
   return clone;
 }
 
@@ -1141,14 +1195,6 @@ function applyTool(x, y) {
     renderLog();
     renderToolCards();
     return;
-  }
-  // Save warp history in boss rooms (keep last 5 turns)
-  const cfg = ROOM_CONFIGS[currentRoomIdx];
-  if (cfg.isBoss && !S.warpExited) {
-    const snap = deepCloneS();
-    S.warpHistory = S.warpHistory || [];
-    S.warpHistory.unshift(snap);
-    if (S.warpHistory.length > 5) S.warpHistory.pop();
   }
   S.newEmptyCells = new Set();
   const turnConsumed = S.tool === 'locator' ? doLocator(c) : doEchobeamer(c);
@@ -1441,6 +1487,7 @@ function doEchobeamer(c) {
     }
     SFX.red();
   } else if (eph.type === 'blue') {
+    if (!RUN.hintFlags.firstBlue) RUN.hintFlags.firstBlue = true;
     const mult = _useAmplify();
     const msgs = [];
     if (Math.random() < 0.5) {
@@ -1453,7 +1500,12 @@ function doEchobeamer(c) {
     if (Math.random() < xyllaChance) {
       const oiAmt = 10 * (mult > 1 ? mult : 1);
       addOI(oiAmt);
-      msgs.push(`💎 Ксилла +${oiAmt} ОИ`);
+      msgs.push(`💎 Ксилл +${oiAmt} ОИ`);
+      // Store Ксилл in container if purchased
+      if (RUN.hasXyllContainer && !RUN.xyllInContainer) {
+        RUN.xyllInContainer = true;
+        addLog(`📦 Ксилл помещён в контейнер! Возвращайтесь в магазин.`, 'trigger');
+      }
     }
     const fearNow = msgs.includes('СТРАХ активирован!');
     const ampTag = mult > 1 ? ` [⊕×${mult}]` : '';
@@ -1595,6 +1647,10 @@ function checkEphDone(eph) {
       addLog(`🏁 ${eph.name} завершён. ${clean ? '💜 Чисто! +6 ОИ +12м' : '+2 ОИ +4м'}`, 'ok');
       // Inversion lifts after completion
       tickPurpleInversion();
+    }
+    // Show decipher modal for non-blue (blue escaped → no modal)
+    if (eph.type !== 'blue' || !eph.escaped) {
+      setTimeout(() => { renderAll(); showDecipherModal(eph); }, 200);
     }
   }
 }
@@ -1845,6 +1901,7 @@ function applyEchobeamEffect(eph, nc) {
     if (revealed === eph.segs.length) {
       eph.triggered = true;
       applyMembraneTrigger(eph, nc);
+      setTimeout(() => showMembraneModal(eph), 300);
     }
   }
   checkEphDone(eph);
@@ -1982,6 +2039,11 @@ let shopNextRoomIdx = 1;
 let shopMsg = '';
 
 function showShopOverlay(nextRoomIdx) {
+  // VICTORY: player enters shop with Ксилл in container
+  if (RUN.xyllInContainer) {
+    showXyllVictory();
+    return;
+  }
   shopNextRoomIdx = nextRoomIdx;
   shopMsg = '';
   document.getElementById('shop-confirm')?.classList.add('hidden');
@@ -1998,6 +2060,22 @@ function showShopOverlay(nextRoomIdx) {
   if (shopLoreCount <= 3) {
     setTimeout(() => showHint('shop-' + shopLoreCount), 500);
   }
+  // First blue eph hint
+  if (RUN.hintFlags.firstBlue && !RUN.hintFlags.firstBlueShown) {
+    RUN.hintFlags.firstBlueShown = true;
+    setTimeout(() => showHint('shop-blue'), 800);
+  }
+}
+
+function showXyllVictory() {
+  S.phase = 'won';
+  const overlay = document.getElementById('overlay');
+  document.getElementById('overlay-title').textContent  = '🌌 ПОБЕДА — КСИЛЛ ДОСТАВЛЕН';
+  document.getElementById('overlay-body').innerHTML =
+    'Ксилл в безопасности. Тайны Эфира переданы человечеству.<br>Ваша миссия завершена.';
+  document.getElementById('btn-overlay-action').textContent = 'Начать заново';
+  overlay.classList.remove('hidden');
+  SFX.victory();
 }
 
 function hideShopOverlay() {
@@ -2088,18 +2166,9 @@ function shopAction(action) {
 // ─── TRANSITIONS ──────────────────────────────────────────────────
 function onOverlayBtn() {
   const ph  = S.phase;
-  const cfg = ROOM_CONFIGS[currentRoomIdx];
   if (ph === 'lost') { newGameRun(); return; }
   if (ph === 'boss-won' && currentRoomIdx >= ROOM_CONFIGS.length - 1) {
-    newGameRun(); return;
-  }
-  // Warp-exit from boss: player didn't kill boss — send back to regenerated boss room
-  if (ph === 'escaped' && cfg.isBoss && S.warpExited) {
-    saveRoomToRun();
-    document.getElementById('overlay').classList.add('hidden');
-    addLog(`🚪 Варп-побег — Босс перегенерирован. Возврат в битву!`, 'warn');
-    startRoom(currentRoomIdx);  // regenerate same boss room
-    return;
+    startLoop(); return;
   }
   if (currentRoomIdx < ROOM_CONFIGS.length - 1) {
     saveRoomToRun();
@@ -2110,7 +2179,56 @@ function onOverlayBtn() {
   }
 }
 
+// ─── LOOP AFTER BOSS 3 ────────────────────────────────────────────
+// Generates loop rooms: K5 → Shop → K6 → Shop → Boss3
+// Each loop adds +10% blue ephemer chance (loopCount tracks iteration)
+function startLoop() {
+  saveRoomToRun();
+  document.getElementById('overlay').classList.add('hidden');
+  RUN.loopCount++;
+  addLoopRoomConfigs(RUN.loopCount);
+  addLog(`🔁 ПЕТЛЯ ${RUN.loopCount}: синие эфемеры +${RUN.loopCount * 10}%. Снова в бой!`, 'trigger');
+  showShopOverlay(currentRoomIdx + 1);
+}
+
+function addLoopRoomConfigs(loopIdx) {
+  // Determine extra blue count based on loopCount
+  // At loop 10, blueExtra = 10 → all slots are blue (capped)
+  const blueBonus = Math.min(loopIdx, 8); // max 8 extra blues
+
+  // Build ephConfig for K5 and K6 of this loop
+  function makeLoopEphConfig(baseGreen, baseYellow, baseRed, baseBlue, basePurple) {
+    const config = [];
+    const bG = Math.max(0, baseGreen  - Math.floor(blueBonus * 0.3));
+    const bY = Math.max(0, baseYellow - Math.floor(blueBonus * 0.2));
+    const bR = Math.max(0, baseRed    - Math.floor(blueBonus * 0.2));
+    const bB = baseBlue + blueBonus;
+    const bP = Math.max(0, basePurple - Math.floor(blueBonus * 0.3));
+    if (bG > 0) config.push({ type: 'green',  shapes: GREEN_SHAPES,  count: bG });
+    if (bY > 0) config.push({ type: 'yellow', shapes: YELLOW_SHAPES, count: bY });
+    if (bR > 0) config.push({ type: 'red',    shapes: RED_SHAPES,    count: bR });
+    if (bB > 0) config.push({ type: 'blue',   shapes: BLUE_SHAPES,   count: bB });
+    if (bP > 0) config.push({ type: 'purple', shapes: PURPLE_SHAPES, count: bP });
+    return config;
+  }
+
+  const loopBase = currentRoomIdx + 1; // indices for new loop rooms
+  ROOM_CONFIGS[loopBase]     = {
+    label: `Комната 5 (П${loopIdx})`, gridW: 10, gridH: 10, cellSize: 46, isBoss: false, bossIdx: null, pulseInterval: 5,
+    ephConfig: makeLoopEphConfig(1, 1, 2, 2, 2),
+  };
+  ROOM_CONFIGS[loopBase + 1] = {
+    label: `Комната 6 (П${loopIdx})`, gridW: 10, gridH: 10, cellSize: 46, isBoss: false, bossIdx: null, pulseInterval: 5,
+    ephConfig: makeLoopEphConfig(2, 2, 2, 2, 2),
+  };
+  ROOM_CONFIGS[loopBase + 2] = {
+    label: '⚡ БОСС 3', gridW: 16, gridH: 16, cellSize: 24, isBoss: true, bossIdx: 2, pulseInterval: 2,
+    pulseHostileCount: 3, emiProbs: [0.20, 0.50, 0.80, 1.00], ephConfig: null,
+  };
+}
+
 function newGameRun() {
+  clearHintArchive();
   document.getElementById('overlay').classList.add('hidden');
   hideShopOverlay();
   initRun();
@@ -2136,22 +2254,21 @@ function renderAll() {
   renderEphTracker();
   renderLog();
   renderBossBar();
-  renderWarpBtn();
   renderOverlay();
 }
 
-function renderWarpBtn() {
-  const btn = document.getElementById('btn-warp');
-  const exitBtn = document.getElementById('btn-exit-room');
-  if (!btn) return;
-  const cfg = ROOM_CONFIGS[currentRoomIdx];
-  const isBoss = cfg?.isBoss;
-  const warp = S.player?.res?.warpEssence || 0;
+function useWarpOnDeath() {
+  if (S.phase !== 'lost') return;
   const cost = (RUN.warpUseCount || 0) + 1;
-  const boss = S.ephemers?.[0];
-  const canWarp = isBoss && !S.warpExited && !boss?.eyesNeutralized && !boss?.done && warp >= cost && S.warpHistory && S.warpHistory.length > 0 && S.phase === 'playing';
-  btn.classList.toggle('hidden', !canWarp);
-  if (canWarp) btn.textContent = `💜 ВАРП (−${cost} ${cost === 1 ? 'варп-материя' : 'варп-материи'})`;
+  const currentWarp = S.player.res.warpEssence || 0;
+  if (currentWarp < cost) return;
+  RUN.warpUseCount = (RUN.warpUseCount || 0) + 1;
+  // Preserve warp essence earned this room minus cost
+  RUN.res.warpEssence = currentWarp - cost;
+  document.getElementById('overlay').classList.add('hidden');
+  addLog(`💜 ВАРП активирован! Комната перегенерируется. Потрачено ${cost} варп-матери${cost === 1 ? 'и' : 'й'}.`, 'trigger');
+  SFX.purple();
+  showShopOverlay(currentRoomIdx);  // same room will regenerate after shop
 }
 
 function renderResBar() {
@@ -2378,34 +2495,7 @@ function renderToolCards() {
   }
 }
 
-function useWarp() {
-  if (S.phase !== 'playing') return;
-  if (S.warpExited) return;
-  const cost = (RUN.warpUseCount || 0) + 1;
-  if (!S.warpHistory || S.warpHistory.length === 0) {
-    addLog(`💜 ВАРП: нет сохранённых ходов для отката`, 'warn');
-    return;
-  }
-  if ((S.player.res.warpEssence || 0) < cost) {
-    addLog(`💜 ВАРП: нужно ${cost} ${cost === 1 ? 'варп-материя' : 'варп-материи'} (у вас ${S.player.res.warpEssence || 0})`, 'warn');
-    renderLog();
-    return;
-  }
-  const rollback = Math.min(cost, S.warpHistory.length);
-  const snap = S.warpHistory[rollback - 1];
-  const newEssence = S.player.res.warpEssence - cost;
-  RUN.warpUseCount = (RUN.warpUseCount || 0) + 1;
-  S = JSON.parse(JSON.stringify(snap));
-  S.newEmptyCells = new Set();
-  S.warpSnapshot = null;
-  S.warpHistory = [];
-  S.player.res.warpEssence = newEssence;
-  S.warpExited = true;   // exit is now unlocked (but boss not killed)
-  addLog(`💜 ВАРП! Откат на ${rollback} ${rollback===1?'ход':'ходов'}. Потрачено ${cost} ${cost === 1 ? 'варп-материя' : 'варп-материи'}.`, 'trigger');
-  addLog(`⚠ Босс не повержён — выход вернёт вас обратно к битве!`, 'warn');
-  SFX.purple();
-  renderAll();
-}
+// (useWarp removed — warp now triggers on death screen via useWarpOnDeath)
 
 function useInventorySlot(slotIdx) {
   if (S.phase !== 'playing') return;
@@ -2598,8 +2688,8 @@ function renderEphTracker() {
         const blueBadge = eph.type === 'blue' && eph.fearActive && !eph.done
           ? `<span class="timer-badge blue-badge">⏱${eph.fearTimer}</span>` : '';
 
-        // Мембрана — тип
-        const memTypeInfo = eph.memType && MEMBRANE_DEFS[eph.memType]
+        // Мембрана — тип (показывать только после срабатывания)
+        const memTypeInfo = eph.triggered && eph.memType && MEMBRANE_DEFS[eph.memType]
           ? ` <span class="mem-type-badge">${MEMBRANE_DEFS[eph.memType].symbol} ${MEMBRANE_DEFS[eph.memType].name}</span>` : '';
 
         card.innerHTML = `
@@ -2614,8 +2704,23 @@ function renderEphTracker() {
             ${eph.type === 'blue' && eph.fearActive && !eph.done ? `<div class="eph-effect" style="color:#3b82f6">⏱ Сбежит через ${eph.fearTimer} ход${eph.fearTimer === 1 ? '' : 'а'}</div>` : ''}
             ${effectLine ? `<div class="eph-effect" style="color:${effectColors[eph.type]}">${effectLine}</div>` : ''}
           </div>`;
-        if (knownNow || knownBefore) card.appendChild(buildMiniShape(eph));
-        if (eph.done) card.addEventListener('click', () => showEncyclopedia(eph));
+        if (knownNow || knownBefore) {
+          if (eph.done && !eph.deciphered) {
+            const tile = document.createElement('div');
+            tile.className = 'eph-locked-tile';
+            tile.title = `Расшифровать — ${DECIPHER_COSTS[eph.type] ?? '?'} ОИ`;
+            card.appendChild(tile);
+          } else {
+            card.appendChild(buildMiniShape(eph));
+          }
+        }
+        if (eph.done) {
+          card.style.cursor = 'pointer';
+          card.addEventListener('click', () => {
+            if (!eph.deciphered) showDecipherModal(eph);
+            else showEncyclopedia(eph);
+          });
+        }
       }
     }
     el.appendChild(card);
@@ -2872,6 +2977,19 @@ function renderOverlay() {
     return `<div class="report-row"><span class="report-key">${r[0]}</span><span class="report-val">${r[1]}</span></div>`;
   }).join('');
 
+  // ВАРП button on death screen
+  const warpBtn = document.getElementById('btn-overlay-warp');
+  if (warpBtn) {
+    if (ph === 'lost') {
+      const warpCost = (RUN.warpUseCount || 0) + 1;
+      const hasWarp  = (S.player.res.warpEssence || 0) >= warpCost;
+      warpBtn.classList.toggle('hidden', !hasWarp);
+      if (hasWarp) warpBtn.textContent = `💜 ВАРП — отменить гибель (−${warpCost} варп-матери${warpCost === 1 ? 'и' : 'й'})`;
+    } else {
+      warpBtn.classList.add('hidden');
+    }
+  }
+
   const btn = document.getElementById('btn-overlay-action');
   if (ph === 'lost') {
     btn.textContent = 'НОВЫЙ ЗАБЕГ';
@@ -2991,6 +3109,8 @@ function shopEquipBuy(orgKey, itemId) {
   RUN.inventory.push({ type: 'equipment', id: item.id, name: item.name, eqType: item.type, desc: item.desc });
   // Passive H-05 Стимулятор: mark flag on purchase
   if (item.id === 'H-05') RUN.stimulatorActive = true;
+  // I-07 Контейнер для Ксилла
+  if (item.id === 'I-07') RUN.hasXyllContainer = true;
   shopMsg = `✅ ${item.name} куплен (слот ${RUN.inventory.length})`;
   renderShopOverlay();
   // Re-render equipment panel after purchase
@@ -3040,6 +3160,131 @@ function renderShopOverlay() {
 }
 
 // ─── ENCYCLOPEDIA POPUP ───────────────────────────────────────────
+// ─── MEMBRANE NARRATIVE TEXTS ─────────────────────────────────────
+const MEMBRANE_NARRATIVES = {
+  'M-01': [
+    'Институт: «Пульс-мембрана зафиксирована. Энергетический выброс соответствует классу Ψ-3. Данные переданы в исследовательский отдел. Вам зачтено.»',
+    'Госпиталь: «Пульсирующий выброс засечён на биосенсорах. Если ощущаете недомогание после контакта — немедленно обратитесь в медпункт. Это не рекомендация.»',
+    'Чёрный рынок: «Пульс-мембрана! Я таких штук три продал на прошлой неделе. Батарейный шрам — он вам понравится. Следующий раз — договор заранее.»',
+  ],
+  'M-02': [
+    'Институт: «Волновая мембрана активирована. Акустический импульс распространился вдоль горизонтали. Алгоритм картографирования обновлён.»',
+    'Госпиталь: «Волна прошла через сектор. Персонал в норме. Рекомендуем проверить оборудование — резонанс мог сместить калибровку.»',
+    'Чёрный рынок: «Волна! Знаю одного коллекционера, который платит втрое за данные о волновых мембранах. Скажите, что от меня — скину комиссию.»',
+  ],
+  'M-03': [
+    'Институт: «Сонар-паттерн зафиксирован. Квадратный охват 5×5 — редкая конфигурация. Образец внесён в реестр аномалий класса A.»',
+    'Госпиталь: «Сонарный импульс прошёл через наши датчики. Пациенты не пострадали. Просьба уведомлять заранее о плановых активациях.»',
+    'Чёрный рынок: «Сонар — это уже серьёзно. За такой образец дадут хорошую цену. Если надумаете продавать данные — я знаю покупателей.»',
+  ],
+  'M-04': [
+    'Институт: «Мембрана Усиления активирована. Следующие эхо-импульсы получат усиленный отклик. Фиксируем для калибровки.»',
+    'Госпиталь: «Усиление зафиксировано. Наши аппараты жизнеобеспечения перешли в защитный режим. Всё под контролем.»',
+    'Чёрный рынок: «Усиление! Пока эффект действует — не теряйте время. Или продайте мне один из усиленных ресурсов. Цена — договорная.»',
+  ],
+  'M-05': [
+    'Институт: «Исследовательская мембрана активирована. Сигнатуры нескольких эфемеров переданы в архив. Коллеги благодарят за вклад.»',
+    'Госпиталь: «Исследовательский импульс засечён. Три новых сигнатуры — это хорошая новость для всей команды. Спасибо.»',
+    'Чёрный рынок: «Исследование? Мне нравится этот эвфемизм. Результаты не продаёте? Могу предложить хорошую цену за необработанные данные.»',
+  ],
+  'M-06': [
+    'Институт: «Защитное поле активировано. Силовая мембрана класса Δ создала барьер. Рекомендуем не злоупотреблять — ресурс ограничен.»',
+    'Госпиталь: «Защитный контур зафиксирован. Медики облегчённо вздыхают. Пожалуйста, берегите себя — пациентом быть хуже.»',
+    'Чёрный рынок: «Защита! Хорошая штука. Я и сам бы не отказался от такой. Если появится второй заряд — знаете, куда обращаться.»',
+  ],
+  'M-07': [
+    'Институт: «Эхолот-мембрана активирована. Числовые паттерны трёх ключевых точек переданы в сканер. Данные верифицированы.»',
+    'Госпиталь: «Эхолот прошёлся по сектору. Наши навигационные системы получили обновление. Полезная находка.»',
+    'Чёрный рынок: «Эхолот. Точность — моя слабость. За точные карты я плачу двойную ставку. Имейте в виду.»',
+  ],
+  'M-08': [
+    'Институт: «Взрывная мембрана активирована. Квадратное раскрытие зафиксировано. Энергетический выброс соответствует норме.»',
+    'Госпиталь: «Взрыв! Персонал в шоке, но целы. В следующий раз — предупреждение заранее, пожалуйста. Сердца у нас не железные.»',
+    'Чёрный рынок: «Взрыв мембраны — это красиво. Я слышал, некоторые коллекционеры платят только за видеозапись. Интересно, не правда ли?»',
+  ],
+  'M-09': [
+    'Институт: «Мембрана Памяти активирована. Форма следующего эфемера внесена в предиктивный каталог. Полезный прецедент.»',
+    'Госпиталь: «Память — редкое свойство. Берегите эту информацию. Следующий образец уже ждёт вас с известной формой.»',
+    'Чёрный рынок: «Предсказание формы эфемера — это деньги. Большие деньги. Если хотите монетизировать — я организую покупателей.»',
+  ],
+  'M-10': [
+    'Институт: «Резонансная мембрана активирована. Следующий триггер сработает с двойным эффектом. Феномен задокументирован.»',
+    'Госпиталь: «Резонанс зафиксирован. Удвоенный эффект — это непредсказуемо. Будьте осторожны при следующей активации.»',
+    'Чёрный рынок: «Резонанс! Двойной выхлоп — двойная прибыль. Если вам повезёт, я куплю половину. Справедливо же.»',
+  ],
+  'M-11': [
+    'Институт: «Мембрана Прозрения активирована. Два эфемера внесены в Энциклопедию автоматически. Институт ценит ваш вклад.»',
+    'Госпиталь: «Прозрение — хорошее слово. Два новых образца в базе данных — это прогресс для всего человечества. Продолжайте.»',
+    'Чёрный рынок: «Прозрение. Знаете, за доступ к Энциклопедии некоторые платят серьёзные деньги. Если надумаете — я посредник.»',
+  ],
+  'M-12': [
+    'Институт: «Регенеративная мембрана активирована. Биосигналы стабилизированы. Рекомендуем занести в медицинский журнал.»',
+    'Госпиталь: «Регенерация! Это именно то, что мы изучаем. Если позволите — возьмём несколько образцов. Исключительно в научных целях.»',
+    'Чёрный рынок: «Регенерация. За такую мембрану дорого заплатят военные. Но это уже не мой профиль — слишком официально.»',
+  ],
+};
+
+function showMembraneModal(eph) {
+  const def = MEMBRANE_DEFS[eph.memType];
+  if (!def) return;
+  const narratives = MEMBRANE_NARRATIVES[eph.memType] ?? [];
+  const narrative  = narratives[Math.floor(Math.random() * narratives.length)] ?? '';
+  const [org, text] = narrative.includes(':') ? narrative.split(': ', 2) : ['', narrative];
+
+  document.getElementById('mem-label').textContent = `${def.symbol} ${def.name.toUpperCase()} (${eph.memType})`;
+  const body = document.getElementById('mem-body');
+  body.innerHTML = `
+    <p><strong>Эффект:</strong> ${def.desc}</p>
+    ${org ? `<hr style="border-color:#4ecdc455;margin:8px 0"><p><strong>${org}:</strong> ${text}</p>` : ''}`;
+  document.getElementById('mem-overlay').classList.remove('hidden');
+  // Save to membrane journal
+  localStorage.setItem('ech_mem_seen_' + eph.memType, JSON.stringify({ label: `${def.symbol} ${def.name}`, desc: def.desc, narrative }));
+}
+
+function showDecipherModal(eph) {
+  const typeNames = { green: 'Зелёный', yellow: 'Жёлтый', red: 'Красный', blue: 'Синий', purple: 'Фиолетовый' };
+  const cost = DECIPHER_COSTS[eph.type] ?? 10;
+  const canPay = S.player.res.oi >= cost;
+
+  const body = document.getElementById('decipher-body');
+  body.innerHTML = `
+    <p>Вы удачно исследовали <strong>${typeNames[eph.type]} «${eph.name}»</strong>,<br>
+    его сигнатура внесена в базы данных вашего сканера.</p>
+    <p>Расшифровка раскроет полную информацию об образце.</p>`;
+
+  const payBtn = document.getElementById('btn-decipher-pay');
+  payBtn.textContent = `Расшифровать (${cost} ОИ)`;
+  payBtn.disabled = !canPay;
+  payBtn.style.opacity = canPay ? '1' : '0.4';
+
+  document.getElementById('decipher-overlay').classList.remove('hidden');
+
+  const skip = document.getElementById('btn-decipher-skip');
+  const onSkip = () => {
+    document.getElementById('decipher-overlay').classList.add('hidden');
+    skip.removeEventListener('click', onSkip);
+    payBtn.removeEventListener('click', onPay);
+  };
+  const onPay = () => {
+    if (S.player.res.oi < cost) return;
+    S.player.res.oi -= cost;
+    eph.deciphered = true;
+    document.getElementById('decipher-overlay').classList.add('hidden');
+    skip.removeEventListener('click', onSkip);
+    payBtn.removeEventListener('click', onPay);
+    addLog(`🔬 ${eph.name} расшифрован! (−${cost} ОИ)`, 'trigger');
+    renderAll();
+    showEncyclopedia(eph);
+  };
+  skip.addEventListener('click', onSkip);
+  payBtn.addEventListener('click', onPay);
+}
+
+function showDecipheredInfo(eph) {
+  // Click on already-deciphered done eph → show encyclopedia
+  showEncyclopedia(eph);
+}
+
 function showEncyclopedia(eph) {
   const box   = document.getElementById('ency-body');
   const title = document.getElementById('ency-title');
@@ -3081,8 +3326,16 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('card-7')?.addEventListener('click', () => useInventorySlot(5));
   document.addEventListener('keydown', e => {
     if (S.phase !== 'playing') return;
-    if (e.key.toLowerCase() === 'l') { S.tool = 'locator';    renderToolCards(); renderGrid(); }
-    if (e.key.toLowerCase() === 'e') { S.tool = 'echobeamer'; renderToolCards(); renderGrid(); }
+    const k = e.key.toLowerCase();
+    if (k === 'l') { S.tool = 'locator';    renderToolCards(); renderGrid(); return; }
+    if (k === 'e') { S.tool = 'echobeamer'; renderToolCards(); renderGrid(); return; }
+    // Inventory slot hotkeys: W E R T = slots 0-3, S D F G = slots 4-7
+    const row1 = ['w','e','r','t'];
+    const row2 = ['s','d','f','g'];
+    const i1 = row1.indexOf(k);
+    if (i1 >= 0) { useInventorySlot(i1); return; }
+    const i2 = row2.indexOf(k);
+    if (i2 >= 0) { useInventorySlot(i2 + 4); return; }
   });
   document.getElementById('btn-overlay-action').addEventListener('click', onOverlayBtn);
   document.getElementById('btn-exit-room').addEventListener('click', exitRoom);
@@ -3136,6 +3389,14 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   // Init toggle state from localStorage
   document.getElementById('hints-toggle').checked = hintsGlobalOn();
+
+  // ВАРП на экране поражения
+  document.getElementById('btn-overlay-warp')?.addEventListener('click', useWarpOnDeath);
+
+  // Membrane narrative modal
+  document.getElementById('mem-close')?.addEventListener('click', () => {
+    document.getElementById('mem-overlay').classList.add('hidden');
+  });
 
   initRun();
   startRoom(0);

@@ -99,7 +99,7 @@
       </div>
       <!-- Boss bar — content rendered dynamically by JS -->
       <div id="boss-bar" class="hidden"></div>
-      <div id="keys-bar"><kbd>L</kbd> Локатор &nbsp; <kbd>E</kbd> Эхолуч &nbsp;&nbsp; <button id="btn-exit-room">🚪 УЙТИ ИЗ КОМНАТЫ</button> <button id="btn-warp" class="hidden" onclick="useWarp()">💜 ВАРП (0)</button></div>
+      <div id="keys-bar"><kbd>L</kbd> Локатор &nbsp; <kbd>E</kbd> Эхолуч &nbsp;&nbsp; <button id="btn-exit-room">🚪 УЙТИ ИЗ КОМНАТЫ</button></div>
       <!-- Tool card slots -->
       <div id="tool-row">
         <div class="card-slot" id="card-0" data-tool="locator">
@@ -191,7 +191,37 @@
     <div id="overlay-title"></div>
     <div id="overlay-sub"></div>
     <div id="overlay-stats"></div>
+    <button id="btn-overlay-warp" class="hidden" onclick="useWarpOnDeath()">💜 ВАРП</button>
     <button id="btn-overlay-action">ПРОДОЛЖИТЬ</button>
+  </div>
+</div>
+
+<!-- ═══ DECIPHER MODAL ═══ -->
+<div id="decipher-overlay" class="hidden">
+  <div id="decipher-box">
+    <div class="decipher-header">ПРОТОКОЛ ИДЕНТИФИКАЦИИ</div>
+    <div id="decipher-body"></div>
+    <div class="decipher-footer">
+      <button id="btn-decipher-skip">Дальше</button>
+      <button id="btn-decipher-pay"></button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MEMBRANE NARRATIVE MODAL ═══ -->
+<div id="mem-overlay" class="hidden">
+  <div id="mem-box" class="hint-box hint-classified">
+    <div class="hint-header">
+      <div class="hint-header-top">
+        <span>ЭХОКАМЕРА | ОТЧЁТ ОБ ОБРАЗЦЕ</span>
+        <span id="mem-clearance">УРОВЕНЬ ДОПУСКА: 2</span>
+      </div>
+      <div id="mem-label"></div>
+    </div>
+    <div id="mem-body" class="hint-body"></div>
+    <div class="hint-footer" style="justify-content:flex-end">
+      <button id="mem-close">ПРИНЯТО</button>
+    </div>
   </div>
 </div>
 
