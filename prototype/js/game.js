@@ -192,6 +192,12 @@ const HINTS_DATA = {
     type: 'classified',
     text: 'Не смотря на секретность и особый режим работы соблюдаемый [ЦЕНЗУРА], размещённом в [ЦЕНЗУРА], информация об артефактах Эфира скоро вышла за пределы Института и Госпиталя. Руководством было принято решение расширить число допущенных лиц с целью увеличить приток финансов из независимых источников.\n\nНачиная с [ЦЕНЗУРА], ваши сделки на Чёрном Рынке не будут являться предметом специального расследования. Пока вы делаете работу.',
   },
+  'first-decipher': {
+    label: 'СИГНАТУРА РАСШИФРОВАНА',
+    clearance: 1,
+    type: 'normal',
+    text: 'Вы дешифровали сигнатуру Эфемера. Дальнейшее обнаружение и исследование его в комнатах существенно упрощено.\n\nЗа каждые 3 Эфемера той же формы, или того же цвета, вы будете получать по 3 ОИ.',
+  },
 };
 
 // Shop lore counter persists across sessions
@@ -292,7 +298,7 @@ function closeHint() {
   overlay.classList.add('hidden');
 }
 
-const ARCHIVE_ORDER = ['intro','first-empty','first-number','first-echo','first-green','first-membrane','first-red','first-purple','boss-appear','first-hostile','first-emi','shop-1','shop-2','shop-3','shop-blue'];
+const ARCHIVE_ORDER = ['intro','first-empty','first-number','first-echo','first-green','first-membrane','first-red','first-purple','boss-appear','first-hostile','first-emi','first-decipher','shop-1','shop-2','shop-3','shop-blue'];
 
 function openArchive() {
   const overlay = document.getElementById('archive-overlay');
@@ -641,7 +647,7 @@ function initRun() {
     colorMembranes:     assignColorMembranes(),
     colorCounts: { green: 0, yellow: 0, red: 0, blue: 0, purple: 0 },
     shapeCounts: {},
-    hintFlags: { firstEmpty: false, firstNumber: false, firstEcho: false, firstGreen: false, firstMembrane: false, firstRed: false, firstPurple: false, firstHostile: false, firstEmi: false, firstBlue: false, firstBlueShown: false },
+    hintFlags: { firstEmpty: false, firstNumber: false, firstEcho: false, firstGreen: false, firstMembrane: false, firstRed: false, firstPurple: false, firstHostile: false, firstEmi: false, firstBlue: false, firstBlueShown: false, firstDecipher: false },
     warpUseCount: 0,
     hasXyllContainer: false,
     xyllInContainer:  false,
@@ -3274,6 +3280,10 @@ function showDecipherModal(eph) {
     skip.removeEventListener('click', onSkip);
     payBtn.removeEventListener('click', onPay);
     addLog(`🔬 Эфемер «${eph.name}» расшифрован! (−${cost} ОИ)`, 'trigger');
+    if (!RUN.hintFlags.firstDecipher) {
+      RUN.hintFlags.firstDecipher = true;
+      setTimeout(() => showHint('first-decipher'), 600);
+    }
     renderAll();
     showEncyclopedia(eph);
   };
