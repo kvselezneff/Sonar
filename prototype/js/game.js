@@ -1631,6 +1631,7 @@ function doEchobeamer(c) {
     if (revealed === eph.segs.length) {
       eph.triggered = true;
       applyMembraneTrigger(eph, c);
+      setTimeout(() => showMembraneModal(eph), 400);
     }
   }
   checkEphDone(eph);
