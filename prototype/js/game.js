@@ -74,7 +74,6 @@ const EQUIPMENT_DB = {
   institute: {
     standard: [
       { id: 'I-05', name: 'Архивный запрос', type: 'consumable',price: 50,  desc: 'Открывает описание 2 неизвестных эфемеров' },
-      { id: 'I-07', name: 'Контейнер для Ксилла', type: 'passive', price: 500, desc: 'Следующий Ксилл из синего эфемера хранится в контейнере. Вернитесь в магазин с Ксиллом — победа.' },
     ],
     pool: [
       { id: 'I-01', name: 'Датчик слежения',type: 'passive',   price: 65,  desc: '+1 ОИ каждые 5 ходов. Побег → +5 ОИ.', wip: true },
@@ -146,7 +145,7 @@ const HINTS_DATA = {
     label: 'ВАРП-МАТЕРИЯ — ОСОБЫЙ РЕЖИМ',
     clearance: 3,
     type: 'classified',
-    text: 'Вы добыли Варп-материя. Полумифический ресурс, который можно извлечь только из наиболее нестабильных и опасных зон Эфира — обычно в прямом контакте с Боссом или фиолетовыми Эфириалами. Природа субстанции пока не исследована — единственное что известно, Варп-материя позволяет управлять хронологией событий в Эхо-Камере. Используйте его, находясь под давлением Босса — кнопка ВАРП позволит откатить несколько ходов назад.',
+    text: 'Вы добыли Варп-материю. Полумифический ресурс, который можно извлечь только из наиболее нестабильных и опасных зон Эфира — обычно в прямом контакте с Боссом или фиолетовыми Эфириалами. Природа субстанции пока не исследована — единственное что известно, Варп-материя позволяет избежать гибели. Кнопка ВАРП появится на экране поражения и позволит продолжить забег ценой накопленного ресурса.',
   },
   'boss-appear': {
     label: 'СИГНАЛ #ERR',
@@ -366,7 +365,7 @@ const EPH_EFFECTS_ECHO = {
   green:  'Эхолуч: +1 эссенция, +1 ОИ',
   yellow: 'Эхолуч: +4 энергии (без перегрузки), +1 сгусток',
   red:    'Эхолуч: агрессия + 30% → жемчуг',
-  blue:   'Эхолуч: 50% страх (5 ходов) + 20% → Ксилл (+10 ОИ)',
+  blue:   'Эхолуч: 50% страх (5 ходов) + 20% → Ксилл (+30 ОИ)',
   purple: 'Эхолуч: ресурс / ±1 HP / 10% → Варп-материя',
 };
 // Shown only after Locator was used on this ephemer (or if known from prev run)
@@ -694,6 +693,7 @@ function initRun() {
     hasXyllContainer: false,
     xyllInContainer:  false,
     pearlSaleCount:   0,
+    membraneTriggerCounts: {},
     loopCount:        0,
     stats: {
       totalTurns:     0,
@@ -763,6 +763,7 @@ function startRoom(roomIdx) {
     invertActive:    false,
     freezeActive:    false,
     freezeTargets:   [],
+    bossFreezeTimer: 0,
     stats: {
       emptyCells:   0,
       numberCells:  0,
@@ -1028,6 +1029,12 @@ function tickBossPulse() {
   if (boss?.eyesNeutralized) return;  // Eyes destroyed — no more pulse
 
   tickHostileCells();
+
+  // Заморозка: пульс-таймер заморожен
+  if (S.bossFreezeTimer > 0) {
+    S.bossFreezeTimer--;
+    return;
+  }
 
   S.pulseTimer--;
   if (S.pulseTimer <= 0) {
@@ -1564,7 +1571,7 @@ function doEchobeamer(c) {
     }
     const xyllaChance = mult > 1 ? 0.4 : 0.2;
     if (Math.random() < xyllaChance) {
-      const oiAmt = 10 * (mult > 1 ? mult : 1);
+      const oiAmt = 30 * (mult > 1 ? mult : 1);
       addOI(oiAmt);
       msgs.push(`💎 Ксилл +${oiAmt} ОИ`);
       // Store Ксилл in container if purchased
@@ -2072,6 +2079,9 @@ function exitRoom() {
   if (S.phase !== 'playing') return;
   S.phase = 'escaped';
   addLog(`🚪 Покинули комнату. HP ${S.player.hp}/${S.player.hpMax} сохранено.`, 'warn');
+  if (RUN.xyllInContainer) {
+    addLog(`🌌 КСИЛЛ В КОНТЕЙНЕРЕ! Доставьте его в Магазин — вас ждёт победа!`, 'trigger');
+  }
   startCountdown('escaped');
 }
 
@@ -2224,6 +2234,16 @@ function shopAction(action) {
       if (res.money < 40) { msg = '❌ Нужно 40 монет'; break; }
       res.money -= 40; RUN.inventory.push({ type: 'shield', hp: 2 });
       msg = `🛡 Щит (2 удара) помещён в слот ${RUN.inventory.length}.`;
+      break;
+    case 'buy-xyll-container':
+      if (RUN.hasXyllContainer) { msg = '❌ Контейнер уже куплен'; break; }
+      if (!RUN.hintFlags.firstBlue) { msg = '❌ Сначала встретьте синего эфемера'; break; }
+      if (RUN.inventory.length >= RUN.inventorySlots) { msg = `❌ Нет свободных слотов (${RUN.inventorySlots})`; break; }
+      if (res.money < 500) { msg = '❌ Нужно 500 монет'; break; }
+      res.money -= 500;
+      RUN.hasXyllContainer = true;
+      RUN.inventory.push({ type: 'equipment', id: 'I-07', name: 'Контейнер для Ксилла', eqType: 'passive', desc: 'Следующий Ксилл из синего эфемера хранится в контейнере. Вернитесь в магазин — победа.' });
+      msg = `📦 Контейнер для Ксилла помещён в слот ${RUN.inventory.length}.`;
       break;
     case 'buy-powerbank':
       if (RUN.inventory.length >= RUN.inventorySlots) { msg = `❌ Нет свободных слотов (${RUN.inventorySlots})`; break; }
@@ -2565,13 +2585,26 @@ function renderToolCards() {
       const borderColor = isPas ? '#9b59b6' : (item.eqType === 'tool' ? '#4ecdc4' : '#e67e22');
       slotEl.className = 'card-slot equip-slot' + (isBlk ? ' slot-blocked' : '');
       slotEl.style.borderColor = borderColor;
-      slotEl.innerHTML = `
-        <div class="card-inner">
-          <div class="equip-type-badge">${typeLabel} ${item.eqType === 'passive' ? 'пассив' : item.eqType === 'tool' ? 'инструм.' : 'расходник'}</div>
-          <div class="card-name" style="font-size:9px;margin-top:2px">${item.id}</div>
-          <div class="card-name" style="font-size:10px">${item.name}</div>
-          <div class="card-cost" style="color:${borderColor};font-size:8px">${isBlk ? '🔒 БЛОК' : (isPas ? 'авто' : 'нажать')}</div>
-        </div>`;
+      if (item.id === 'I-07' && RUN.xyllInContainer) {
+        // Праздничный вид — Ксилл пойман!
+        slotEl.style.borderColor = '#f0d060';
+        slotEl.style.boxShadow   = '0 0 16px rgba(240,208,96,.6)';
+        slotEl.innerHTML = `
+          <div class="card-inner">
+            <div class="equip-type-badge" style="color:#f0d060">🎉 КСИЛЛ ПОЙМАН!</div>
+            <div class="card-name" style="font-size:9px;margin-top:2px;color:#f0d060">${item.id}</div>
+            <div class="card-name" style="font-size:10px;word-break:break-word">${item.name}</div>
+            <div class="card-cost" style="color:#f0d060;font-size:8px">вернитесь в магазин</div>
+          </div>`;
+      } else {
+        slotEl.innerHTML = `
+          <div class="card-inner">
+            <div class="equip-type-badge">${typeLabel} ${item.eqType === 'passive' ? 'пассив' : item.eqType === 'tool' ? 'инструм.' : 'расходник'}</div>
+            <div class="card-name" style="font-size:9px;margin-top:2px">${item.id}</div>
+            <div class="card-name" style="font-size:10px;word-break:break-word">${item.name}</div>
+            <div class="card-cost" style="color:${borderColor};font-size:8px">${isBlk ? '🔒 БЛОК' : (isPas ? 'авто' : 'нажать')}</div>
+          </div>`;
+      }
     }
   }
 }
@@ -2637,9 +2670,10 @@ function useInventorySlot(slotIdx) {
       tickPurpleInversion('архивный запрос');
       SFX.victory();
     } else if (id === 'BM-04') { // Дрон-Разведчик
-      const targets = S.ephemers.filter(e => !e.done && e.scanned === 0 && e.opened === 0);
+      const isBossRoom = ROOM_CONFIGS[currentRoomIdx]?.isBoss;
+      const targets = S.ephemers.filter(e => !e.done && (isBossRoom || (e.scanned === 0 && e.opened === 0)));
       if (!targets.length) {
-        addLog(`🤖 Дрон: нет нетронутых эфемеров для разведки`, 'warn');
+        addLog(`🤖 Дрон: нет эфемеров для разведки`, 'warn');
         renderLog(); return;
       }
       const eph = targets[Math.floor(Math.random() * targets.length)];
@@ -2659,12 +2693,17 @@ function useInventorySlot(slotIdx) {
         if (e.type === 'red' && e.aggrActive) { e.aggrTimer += 5; frozen.push(e.id); }
         if (e.type === 'blue' && e.fearActive) { e.fearTimer += 5; frozen.push(e.id); }
       });
+      const bossRoom = ROOM_CONFIGS[currentRoomIdx]?.isBoss;
+      if (bossRoom) {
+        S.bossFreezeTimer = (S.bossFreezeTimer || 0) + 5;
+      }
       S.player.inventory.splice(slotIdx, 1);
-      if (frozen.length) {
+      if (frozen.length || bossRoom) {
         // Merge with existing freeze targets (two freezes stack)
         frozen.forEach(id => { if (!S.freezeTargets.includes(id)) S.freezeTargets.push(id); });
         S.freezeActive = true;
-        addLog(`❄ Заморозка: таймеры ${frozen.length} эфемеров +5 ходов`, 'ok');
+        const bossMsg = bossRoom ? ` + ПУЛЬС Босса +5 ходов` : '';
+        addLog(`❄ Заморозка: таймеры ${frozen.length} эфемеров +5 ходов${bossMsg}`, 'ok');
       } else {
         addLog(`❄ Заморозка: нет активных таймеров для заморозки`, 'warn');
       }
@@ -2885,12 +2924,14 @@ function renderBossBar() {
   }
 
   // Normal boss bar
-  const pColor = S.pulseTimer <= 2 ? '#e74c3c' : S.pulseTimer <= 3 ? '#f39c12' : '#4ecdc4';
+  const frozen = S.bossFreezeTimer > 0;
+  const pColor = frozen ? '#4ecdc4' : (S.pulseTimer <= 2 ? '#e74c3c' : S.pulseTimer <= 3 ? '#f39c12' : '#4ecdc4');
   let html = `
     <div class="boss-stat">
       <span style="color:${pColor}">ПУЛЬС: </span>
       <span class="boss-val" style="color:${pColor}">${S.pulseTimer}</span>
       <span class="boss-unit">ходов</span>
+      ${frozen ? `<span style="color:#4ecdc4;margin-left:6px">❄×${S.bossFreezeTimer}</span>` : ''}
     </div>
     <div class="boss-stat">
       <span style="color:#f0d060">ГЛАЗА: </span>
@@ -3048,7 +3089,7 @@ function renderOverlay() {
       rows.push(['']);
       rows.push([`<span style="color:#9b59b6">── 💜 НОВЫЙ ТИП: ФИОЛЕТОВЫЕ ──────</span>`, '']);
       rows.push([`<span style="color:#9b59b6">Локатор:</span>`, 'ИНВЕРСИЯ — пустые клетки не дают +1э, а снимают 1э, пока эфемер не исследован']);
-      rows.push([`<span style="color:#9b59b6">Эхолуч:</span>`, '40% — случайный ресурс; 40% — ±1 HP; 10% — Варп-материя (откат ходов у Босса)']);
+      rows.push([`<span style="color:#9b59b6">Эхолуч:</span>`, '40% — случайный ресурс; 40% — ±1 HP; 10% — Варп-материя (позволяет избежать гибели)']);
     }
   }
 
@@ -3060,14 +3101,16 @@ function renderOverlay() {
     return `<div class="report-row"><span class="report-key">${r[0]}</span><span class="report-val">${r[1]}</span></div>`;
   }).join('');
 
-  // ВАРП button on death screen
+  // ВАРП button on death screen — always visible, disabled if insufficient
   const warpBtn = document.getElementById('btn-overlay-warp');
   if (warpBtn) {
     if (ph === 'lost') {
       const warpCost = (RUN.warpUseCount || 0) + 1;
       const hasWarp  = (S.player.res.warpEssence || 0) >= warpCost;
-      warpBtn.classList.toggle('hidden', !hasWarp);
-      if (hasWarp) warpBtn.textContent = `💜 ВАРП — отменить гибель (−${warpCost} варп-матери${warpCost === 1 ? 'и' : 'й'})`;
+      warpBtn.classList.remove('hidden');
+      warpBtn.disabled     = !hasWarp;
+      warpBtn.style.opacity = hasWarp ? '1' : '0.4';
+      warpBtn.textContent  = `💜 ВАРП — избежать гибели (−${warpCost} варп-матери${warpCost === 1 ? 'и' : 'й'})`;
     } else {
       warpBtn.classList.add('hidden');
     }
@@ -3121,9 +3164,8 @@ function renderEquipPanel(orgKey, container) {
   const canReveal = hasMore && RUN.res.pearl >= cost;
   let html = '';
 
-  // Standard items — always visible (I-07 only after first blue encounter)
+  // Standard items — always visible
   (db.standard || []).forEach(item => {
-    if (item.id === 'I-07' && !RUN.hintFlags.firstBlue) return;
     html += renderEquipItem(orgKey, item);
   });
 
@@ -3227,6 +3269,25 @@ function renderShopOverlay() {
   if (hpCostEl) hpCostEl.textContent =
     hpIdx < HP_UPGRADE_COSTS.length ? `${HP_UPGRADE_COSTS[hpIdx]} 🟢 эссенции` : 'МАКСИМУМ';
 
+  // Update pearl price label
+  const pearlPriceEl = document.getElementById('pearl-price-label');
+  if (pearlPriceEl) {
+    const pp = RUN.pearlSaleCount === 0 ? 50 : RUN.pearlSaleCount === 1 ? 40 : 30;
+    pearlPriceEl.textContent = `×${pp}м за штуку`;
+  }
+
+  // Show/hide Xyllla container item
+  const xyllItem = document.getElementById('xyll-container-item');
+  if (xyllItem) {
+    const showXyll = RUN.hintFlags.firstBlue && !RUN.hasXyllContainer;
+    xyllItem.style.display = showXyll ? '' : 'none';
+    const xyllBtn = xyllItem.querySelector('button');
+    if (xyllBtn) {
+      xyllBtn.disabled = res.money < 500;
+      xyllBtn.style.opacity = res.money >= 500 ? '1' : '0.45';
+    }
+  }
+
   const msgEl = document.getElementById('shop-msg');
   msgEl.textContent = shopMsg;
   msgEl.className   = shopMsg.startsWith('❌') ? 'shop-msg err' : 'shop-msg ok';
@@ -3287,16 +3348,30 @@ const MEMBRANE_NARRATIVES = {
 function showMembraneModal(eph) {
   const def = MEMBRANE_DEFS[eph.memType];
   if (!def) return;
+
+  const trigCount = RUN.membraneTriggerCounts[eph.memType] || 0;
+  RUN.membraneTriggerCounts[eph.memType] = trigCount + 1;
+
+  // 3rd+ time: don't show modal (already learned)
+  if (trigCount >= 2) return;
+
   const narratives = MEMBRANE_NARRATIVES[eph.memType] ?? [];
   const narrative  = narratives[Math.floor(Math.random() * narratives.length)] ?? '';
   const [org, text] = narrative.includes(':') ? narrative.split(': ', 2) : ['', narrative];
 
   document.getElementById('mem-label').textContent = `${def.symbol} ${def.name.toUpperCase()} (${eph.memType})`;
   const body = document.getElementById('mem-body');
-  body.innerHTML = `
-    <p><strong>Эффект:</strong> ${def.desc}</p>
-    ${def.lore ? `<p style="color:#a0c8d0;font-style:italic;margin-top:8px">${def.lore}</p>` : ''}
-    ${org ? `<hr style="border-color:#4ecdc455;margin:8px 0"><p><strong>${org}:</strong> ${text}</p>` : ''}`;
+  if (trigCount === 0) {
+    // First time: show effect + lore, no Institute narrative
+    body.innerHTML = `
+      <p><strong>Эффект:</strong> ${def.desc}</p>
+      ${def.lore ? `<p style="color:#a0c8d0;font-style:italic;margin-top:8px">${def.lore}</p>` : ''}`;
+  } else {
+    // Second time: show only Institute narrative
+    body.innerHTML = org
+      ? `<p><strong>${org}:</strong> ${text}</p>`
+      : `<p>${narrative}</p>`;
+  }
   document.getElementById('mem-overlay').classList.remove('hidden');
   // Save to membrane journal
   localStorage.setItem('ech_mem_seen_' + eph.memType, JSON.stringify({ label: `${def.symbol} ${def.name}`, desc: def.desc, narrative }));
