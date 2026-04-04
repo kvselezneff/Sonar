@@ -618,6 +618,34 @@ const SFX = {
   sonarPing: (i) => playSonarPing(i),
   purple:  () => { playTone(350, 0.6, 'triangle', 0.2); setTimeout(() => playTone(280, 0.8, 'sine', 0.15), 320); },
   wave:    () => { [0,60,120,180,240,300,360,420].forEach((d,i) => setTimeout(() => playTone(260 + i*55, 0.22, 'sine', 0.14), d)); },
+  hit: () => {
+    try {
+      const ctx = getAudio();
+      const now = ctx.currentTime;
+      // Основной крик: sweep вверх → вниз (дельфин/существо)
+      const osc = ctx.createOscillator(), g = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1600, now);
+      osc.frequency.linearRampToValueAtTime(4200, now + 0.07);
+      osc.frequency.linearRampToValueAtTime(750,  now + 0.34);
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(0.30, now + 0.04);
+      g.gain.setValueAtTime(0.30, now + 0.10);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.36);
+      osc.start(now); osc.stop(now + 0.36);
+      // Второй слой: высокий обертон, чуть позже
+      const osc2 = ctx.createOscillator(), g2 = ctx.createGain();
+      osc2.connect(g2); g2.connect(ctx.destination);
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(4000, now + 0.06);
+      osc2.frequency.linearRampToValueAtTime(1400, now + 0.28);
+      g2.gain.setValueAtTime(0, now + 0.06);
+      g2.gain.linearRampToValueAtTime(0.13, now + 0.10);
+      g2.gain.exponentialRampToValueAtTime(0.001, now + 0.30);
+      osc2.start(now + 0.06); osc2.stop(now + 0.30);
+    } catch(e) {}
+  },
 };
 
 // ─── PERSISTENT STATE (survives newRun) ───────────────────────────
@@ -1021,7 +1049,7 @@ function tickRedAggression() {
       addLog(`🔴 ${nm} АТАКУЕТ! –1 HP!`, 'err');
       S.stats.dmgEphemeral++;
       takeDamage(1);
-      SFX.red();
+      SFX.hit();
     }
   });
 }
@@ -1272,6 +1300,7 @@ function doLocator(c) {
     eph.locatorHit = true;
     S.stats.dmgEphemeral++;
     takeDamage(1);
+    SFX.hit();
     c.state = 'open'; c.vis = true;
     eph.opened++;
     const nd = eph.discovered ? eph.name : 'В ИЗУЧЕНИИ';
