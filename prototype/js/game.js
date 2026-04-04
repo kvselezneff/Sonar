@@ -1011,22 +1011,6 @@ function placeBoss(bossIdx) {
     if (c) { c.eIdx = 0; c.isMembrane = s.isMembrane; c.isEye = s.isEye; }
   });
   S.ephemers.push(boss);
-
-  // After warp: highlight previously-found eyes with drone hint
-  if (RUN.prevBossEyesFound?.size > 0) {
-    let hinted = 0;
-    segs.forEach((seg, idx) => {
-      if (seg.isEye) {
-        const eyeNum = shape.eyeIndices.indexOf(idx);
-        if (RUN.prevBossEyesFound.has(eyeNum)) {
-          const c = cell(seg.x, seg.y);
-          if (c) { c.droneHint = true; hinted++; }
-        }
-      }
-    });
-    if (hinted > 0) addLog(`👁 ВАРП: ${hinted} ранее найденных Глаза подсвечены (жёлтым).`, 'trigger');
-    RUN.prevBossEyesFound = null;
-  }
 }
 
 // ─── RESONANCE NUMBERS ────────────────────────────────────────────
@@ -2396,24 +2380,6 @@ function useWarpOnDeath() {
   RUN.warpUseCount = (RUN.warpUseCount || 0) + 1;
   // Preserve warp essence earned this room minus cost
   RUN.res.warpEssence = currentWarp - cost;
-
-  // In boss room: remember which eyes were already found so they can be hinted on respawn
-  const cfg = ROOM_CONFIGS[currentRoomIdx];
-  if (cfg.isBoss) {
-    const boss  = S.ephemers[0];
-    const shape = BOSS_SHAPES[cfg.bossIdx ?? 0];
-    const eyeFound = new Set();
-    boss.segs.forEach((seg, idx) => {
-      if (seg.isEye) {
-        const c = cell(seg.x, seg.y);
-        if (c && c.vis) {
-          const eyeNum = shape.eyeIndices.indexOf(idx);
-          if (eyeNum >= 0) eyeFound.add(eyeNum);
-        }
-      }
-    });
-    if (eyeFound.size > 0) RUN.prevBossEyesFound = eyeFound;
-  }
 
   document.getElementById('overlay').classList.add('hidden');
   addLog(`💜 ВАРП активирован! Комната перегенерируется. Потрачено ${cost} варп-матери${cost === 1 ? 'и' : 'й'}.`, 'trigger');
