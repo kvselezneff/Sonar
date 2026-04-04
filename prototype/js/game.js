@@ -1276,10 +1276,17 @@ function applyTool(x, y) {
 // ── LOCATOR ──
 function doLocator(c) {
   if (c.isHostile) {
-    addLog(`🚫 Враждебная клетка — Локатор заблокирован!`, 'warn');
-    SFX.blocked();
-    renderLog();
-    return false;
+    if (S.player.battery > 0) {
+      addEnergy(-1, false);
+      addLog(`⚡ Заражённый сектор! –1э.`, 'warn');
+    } else {
+      S.stats.dmgEphemeral++;
+      takeDamage(1);
+      addLog(`⚡ Заражённый сектор! Нет энергии — –1 HP!`, 'err');
+      if (S.phase !== 'playing') return true;
+    }
+    c.isHostile = false;
+    S.hostileCells = S.hostileCells.filter(h => !(h.x === c.x && h.y === c.y));
   }
 
   if (nb8(c.x, c.y).some(n => n.isHostile)) {
@@ -1707,9 +1714,13 @@ function checkEphDone(eph) {
       // Inversion lifts after completion
       tickPurpleInversion();
     }
-    // Show decipher modal for non-blue (blue escaped → no modal)
+    // Show decipher modal for non-blue (blue escaped → no modal); skip if already deciphered
     if (eph.type !== 'blue' || !eph.escaped) {
-      setTimeout(() => { renderAll(); showDecipherModal(eph); }, 200);
+      if (decipheredNames.has(eph.name)) {
+        setTimeout(renderAll, 200);
+      } else {
+        setTimeout(() => { renderAll(); showDecipherModal(eph); }, 200);
+      }
     }
   }
 }
@@ -2778,7 +2789,8 @@ function renderEphTracker() {
         if (eph.done) {
           card.style.cursor = 'pointer';
           card.addEventListener('click', () => {
-            if (!eph.deciphered) showDecipherModal(eph);
+            const isDeciphered = eph.deciphered || decipheredNames.has(eph.name);
+            if (!isDeciphered) showDecipherModal(eph);
             else showEncyclopedia(eph);
           });
         }
