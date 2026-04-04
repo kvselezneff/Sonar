@@ -15,18 +15,30 @@ const RED_AGGR_INTERVAL        = 3;   // red ephemer generates hostile cell ever
 // ─── MEMBRANE TYPES (M-01..M-12) ─────────────────────────────────
 // 2 types randomly assigned per color each run.
 const MEMBRANE_DEFS = {
-  'M-01': { name: 'Пульс',        symbol: 'Ψ', desc: '+3э; переполнение → +1 лимит батареи' },
-  'M-02': { name: 'Волна',        symbol: '≋', desc: 'Строка с макс. скрытых клеток раскрыта (волна слева)' },
-  'M-03': { name: 'Сонар',        symbol: '◎', desc: 'Квадрат 5×5 вокруг мембраны; попадание по эфемеру = Эхолуч' },
-  'M-04': { name: 'Усиление',     symbol: '⊕', desc: 'Следующие 3 Эхолуча по эфемерам: ×2 ресурс; 25% → ×4' },
-  'M-05': { name: 'Исследование', symbol: '✦', desc: '+3 ОИ; подсветить до 3 сегментов эфемеров' },
-  'M-06': { name: 'Защита',       symbol: '△', desc: 'Силовое поле: поглощает следующий удар (до щита)' },
-  'M-07': { name: 'Эхолот',       symbol: '⊙', desc: '3 клетки с макс. числами раскрыты + 3 ОИ' },
-  'M-08': { name: 'Взрыв',        symbol: '✸', desc: 'Раскрытие 3×3 + 3э (штраф за перегрузку); Эхолуч-эффект' },
-  'M-09': { name: 'Память',       symbol: '◈', desc: 'Форма следующего эфемера того же цвета видна' },
-  'M-10': { name: 'Резонанс',     symbol: '∞', desc: 'Следующий Trigger срабатывает дважды' },
-  'M-11': { name: 'Прозрение',    symbol: '◇', desc: '2 эфемера в Энциклопедию + 1 варп-материя' },
-  'M-12': { name: 'Регенерация',  symbol: '♥', desc: '+1 HP; при макс. HP → +1 лимит HP; при лимите 7 → +10м' },
+  'M-01': { name: 'Пульс',        symbol: 'Ψ', desc: '+3э; переполнение → +1 лимит батареи',
+    lore: 'Пульс-мембрана накапливает резонансный заряд по мере вашего сканирования. Когда вы полностью раскрываете её сегменты, накопленная энергия выплёскивается в вашу батарею. Если батарея уже полна, эфирное давление расширяет сам контейнер — лимит навсегда увеличивается на единицу.' },
+  'M-02': { name: 'Волна',        symbol: '≋', desc: 'Строка с макс. скрытых клеток раскрыта (волна слева)',
+    lore: 'Волновая мембрана излучает горизонтальный акустический импульс при активации. Волна распространяется слева направо вдоль строки с наибольшей плотностью нераскрытых клеток — там, где неизвестность наиболее концентрирована. Эфир сам подсказывает, где искать.' },
+  'M-03': { name: 'Сонар',        symbol: '◎', desc: 'Квадрат 5×5 вокруг мембраны; попадание по эфемеру = Эхолуч',
+    lore: 'Сонар-мембрана при активации испускает круговой сканирующий импульс в радиусе двух клеток. Любой эфемер, чей сегмент попадает в зону охвата, получает полноценный Эхолуч-эффект — мембрана как бы "видит" эфиров насквозь, без затрат вашей батареи.' },
+  'M-04': { name: 'Усиление',     symbol: '⊕', desc: 'Следующие 3 Эхолуча по эфемерам: ×2 ресурс; 25% → ×4',
+    lore: 'Усиление-мембрана временно перестраивает резонансный контур вашего оборудования. Следующие три Эхолуча, попавшие по эфемерам, извлекают удвоенное количество ресурсов — мембрана усиливает отклик среды. С вероятностью 25% контур входит в сверхрезонанс и множитель возрастает до четырёх.' },
+  'M-05': { name: 'Исследование', symbol: '✦', desc: '+3 ОИ; подсветить до 3 сегментов эфемеров',
+    lore: 'Исследовательская мембрана хранит структурированные данные об окружающих эфемерах. При активации она передаёт вам три единицы обработанной информации (ОИ) и подсвечивает до трёх ранее невидимых сегментов — мембрана как бы сдаётся сама, раскрывая тайны соседей.' },
+  'M-06': { name: 'Защита',       symbol: '△', desc: 'Силовое поле: поглощает следующий удар (до щита)',
+    lore: 'Защитная мембрана генерирует когерентное силовое поле вокруг исследователя. Поле существует ровно до следующего удара — физического, акустического или эфирного. Оно не накапливается: второй щит не усиливает первый, а просто встаёт в очередь.' },
+  'M-07': { name: 'Эхолот',       symbol: '⊙', desc: '3 клетки с макс. числами раскрыты + 3 ОИ',
+    lore: 'Эхолот-мембрана испускает направленные зондирующие импульсы, которые возвращаются с максимально информативных точек поля. Три клетки с наибольшими акустическими числами раскрываются автоматически — и сама мембрана расплачивается тремя ОИ за привилегию быть изученной.' },
+  'M-08': { name: 'Взрыв',        symbol: '✸', desc: 'Раскрытие 3×3 + 3э (штраф за перегрузку); Эхолуч-эффект',
+    lore: 'Взрывная мембрана при активации мгновенно выбрасывает накопленный заряд во все стороны. Квадрат 3×3 вокруг неё раскрывается, а каждый обнаруженный эфемер получает Эхолуч-эффект. Однако перегрузка неизбежна: цепная реакция стоит три единицы батареи как штраф.' },
+  'M-09': { name: 'Память',       symbol: '◈', desc: 'Форма следующего эфемера того же цвета видна',
+    lore: 'Память-мембрана хранит резонансный слепок соседних существ. После активации она "узнаёт" следующего эфемера того же цвета, который появится в этой или следующей комнате, и передаёт вам его геометрию заранее. Эфир помнит своих — если уметь слушать.' },
+  'M-10': { name: 'Резонанс',     symbol: '∞', desc: 'Следующий Trigger срабатывает дважды',
+    lore: 'Резонансная мембрана создаёт устойчивую стоячую волну в эфирном поле. Следующий триггер любого эфемера попадает в пучность этой волны и удваивает свой эффект. Резонанс не суммируется — лишь одна волна живёт одновременно, зато живёт до первого использования.' },
+  'M-11': { name: 'Прозрение',    symbol: '◇', desc: '2 эфемера в Энциклопедию + 1 варп-материя',
+    lore: 'Прозрение-мембрана обладает редкой способностью: при полном сканировании она "читает" двух ближайших незнакомых эфемеров и вносит их в вашу Энциклопедию без исследования. Побочный эффект — просачивание варп-материи сквозь открывшийся канал. Один кристалл добавляется в ваш запас.' },
+  'M-12': { name: 'Регенерация',  symbol: '♥', desc: '+1 HP; при макс. HP → +1 лимит HP; при лимите 7 → +10м',
+    lore: 'Регенеративная мембрана содержит концентрат биоэфира, реагирующего на живой организм. При активации она немедленно восстанавливает одну единицу здоровья. Если вы и так в полном порядке, давление биоэфира расширяет ваш биологический предел — максимальное HP увеличивается. А если предел уже достиг семи — избыток конвертируется в десять минут реального времени на экстракцию.' },
 };
 function assignColorMembranes() {
   const pool = Object.keys(MEMBRANE_DEFS);
@@ -611,6 +623,7 @@ const SFX = {
 // ─── PERSISTENT STATE (survives newRun) ───────────────────────────
 const encyclopedia = new Set();
 let encyclopediaAtRunStart = new Set();
+let decipheredNames = new Set();
 
 
 // Type labels for display
@@ -622,6 +635,7 @@ let currentRoomIdx = 0;
 
 function initRun() {
   encyclopediaAtRunStart = new Set(encyclopedia);
+  decipheredNames = new Set();
   RUN = {
     hp:          HP_MAX_BASE,
     hpMax:       HP_MAX_BASE,
@@ -651,6 +665,7 @@ function initRun() {
     warpUseCount: 0,
     hasXyllContainer: false,
     xyllInContainer:  false,
+    pearlSaleCount:   0,
     loopCount:        0,
     stats: {
       totalTurns:     0,
@@ -2131,8 +2146,8 @@ function shopAction(action) {
       break;
     }
     case 'battery-charge':
-      if (res.oi < 20) { msg = '❌ Нужно 20 ОИ'; break; }
-      res.oi -= 20;
+      if (res.oi < 10) { msg = '❌ Нужно 10 ОИ'; break; }
+      res.oi -= 10;
       RUN.battery = Math.min(RUN.batMax, RUN.battery + 3);
       msg = `⚡ +3э. Батарея: ${RUN.battery}/${RUN.batMax}. ОИ осталось: ${res.oi}`;
       break;
@@ -2146,9 +2161,11 @@ function shopAction(action) {
       break;
     case 'sell-pearl': {
       if (res.pearl === 0) { msg = '❌ Нет красного жемчуга'; break; }
-      const pe = res.pearl * 20;
+      const pearlPrice = RUN.pearlSaleCount === 0 ? 50 : RUN.pearlSaleCount === 1 ? 40 : 30;
+      const pe = res.pearl * pearlPrice;
       res.money += pe;
-      msg = `💰 Продано ${res.pearl} жемчуга за ${pe}м`;
+      RUN.pearlSaleCount++;
+      msg = `💰 Продано ${res.pearl} жемчуга за ${pe}м (${pearlPrice}м/шт)`;
       res.pearl = 0;
       break;
     }
@@ -2719,7 +2736,8 @@ function renderEphTracker() {
             ${effectLine ? `<div class="eph-effect" style="color:${effectColors[eph.type]}">${effectLine}</div>` : ''}
           </div>`;
         if (knownNow || knownBefore) {
-          if (eph.done && !eph.deciphered) {
+          const nameDeciphered = eph.deciphered || decipheredNames.has(eph.name) || knownBefore;
+          if (!nameDeciphered) {
             const tile = document.createElement('div');
             tile.className = 'eph-locked-tile';
             tile.title = `Расшифровать — ${DECIPHER_COSTS[eph.type] ?? '?'} ОИ`;
@@ -3052,8 +3070,9 @@ function renderEquipPanel(orgKey, container) {
   const canReveal = hasMore && RUN.res.pearl >= cost;
   let html = '';
 
-  // Standard items — always visible
+  // Standard items — always visible (I-07 only after first blue encounter)
   (db.standard || []).forEach(item => {
+    if (item.id === 'I-07' && !RUN.hintFlags.firstBlue) return;
     html += renderEquipItem(orgKey, item);
   });
 
@@ -3249,6 +3268,7 @@ function showMembraneModal(eph) {
   const body = document.getElementById('mem-body');
   body.innerHTML = `
     <p><strong>Эффект:</strong> ${def.desc}</p>
+    ${def.lore ? `<p style="color:#a0c8d0;font-style:italic;margin-top:8px">${def.lore}</p>` : ''}
     ${org ? `<hr style="border-color:#4ecdc455;margin:8px 0"><p><strong>${org}:</strong> ${text}</p>` : ''}`;
   document.getElementById('mem-overlay').classList.remove('hidden');
   // Save to membrane journal
@@ -3288,6 +3308,7 @@ function showDecipherModal(eph) {
     if (S.player.res.oi < cost) return;
     S.player.res.oi -= cost;
     eph.deciphered = true;
+    decipheredNames.add(eph.name);
     document.getElementById('decipher-overlay').classList.add('hidden');
     skip.removeEventListener('click', onSkip);
     payBtn.removeEventListener('click', onPay);
