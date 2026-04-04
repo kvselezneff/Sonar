@@ -982,8 +982,18 @@ function placeBoss(bossIdx) {
   const shape = BOSS_SHAPES[bossIdx ?? 0];
   const maxX  = Math.max(...shape.cells.map(c => c[0]));
   const maxY  = Math.max(...shape.cells.map(c => c[1]));
-  const ox = 1 + Math.floor(Math.random() * Math.max(1, S.gridW - maxX - 2));
-  const oy = 1 + Math.floor(Math.random() * Math.max(1, S.gridH - maxY - 2));
+
+  // On warp-respawn: pick a different offset than before (best-effort)
+  let ox, oy, attempts = 0;
+  const prevOx = RUN._lastBossOx, prevOy = RUN._lastBossOy;
+  do {
+    ox = 1 + Math.floor(Math.random() * Math.max(1, S.gridW - maxX - 2));
+    oy = 1 + Math.floor(Math.random() * Math.max(1, S.gridH - maxY - 2));
+    attempts++;
+  } while (attempts < 20 && ox === prevOx && oy === prevOy);
+  RUN._lastBossOx = ox;
+  RUN._lastBossOy = oy;
+
   const segs = shape.cells.map(([cx, cy], idx) => ({
     x: cx + ox, y: cy + oy,
     isMembrane: shape.eyeIndices.includes(idx),
@@ -1001,6 +1011,22 @@ function placeBoss(bossIdx) {
     if (c) { c.eIdx = 0; c.isMembrane = s.isMembrane; c.isEye = s.isEye; }
   });
   S.ephemers.push(boss);
+
+  // After warp: highlight previously-found eyes with drone hint
+  if (RUN.prevBossEyesFound?.size > 0) {
+    let hinted = 0;
+    segs.forEach((seg, idx) => {
+      if (seg.isEye) {
+        const eyeNum = shape.eyeIndices.indexOf(idx);
+        if (RUN.prevBossEyesFound.has(eyeNum)) {
+          const c = cell(seg.x, seg.y);
+          if (c) { c.droneHint = true; hinted++; }
+        }
+      }
+    });
+    if (hinted > 0) addLog(`👁 ВАРП: ${hinted} ранее найденных Глаза подсвечены (жёлтым).`, 'trigger');
+    RUN.prevBossEyesFound = null;
+  }
 }
 
 // ─── RESONANCE NUMBERS ────────────────────────────────────────────
@@ -2329,7 +2355,11 @@ function addLoopRoomConfigs(loopIdx) {
 }
 
 function newGameRun() {
-  clearHintArchive();
+  // Full reset — equivalent to F5: clear encyclopedia, all localStorage game state
+  encyclopedia.clear();
+  Object.keys(localStorage).filter(k => k.startsWith('ech_')).forEach(k => localStorage.removeItem(k));
+  shopLoreCount = 0;
+
   document.getElementById('overlay').classList.add('hidden');
   hideShopOverlay();
   initRun();
@@ -2366,6 +2396,25 @@ function useWarpOnDeath() {
   RUN.warpUseCount = (RUN.warpUseCount || 0) + 1;
   // Preserve warp essence earned this room minus cost
   RUN.res.warpEssence = currentWarp - cost;
+
+  // In boss room: remember which eyes were already found so they can be hinted on respawn
+  const cfg = ROOM_CONFIGS[currentRoomIdx];
+  if (cfg.isBoss) {
+    const boss  = S.ephemers[0];
+    const shape = BOSS_SHAPES[cfg.bossIdx ?? 0];
+    const eyeFound = new Set();
+    boss.segs.forEach((seg, idx) => {
+      if (seg.isEye) {
+        const c = cell(seg.x, seg.y);
+        if (c && c.vis) {
+          const eyeNum = shape.eyeIndices.indexOf(idx);
+          if (eyeNum >= 0) eyeFound.add(eyeNum);
+        }
+      }
+    });
+    if (eyeFound.size > 0) RUN.prevBossEyesFound = eyeFound;
+  }
+
   document.getElementById('overlay').classList.add('hidden');
   addLog(`💜 ВАРП активирован! Комната перегенерируется. Потрачено ${cost} варп-матери${cost === 1 ? 'и' : 'й'}.`, 'trigger');
   SFX.purple();
