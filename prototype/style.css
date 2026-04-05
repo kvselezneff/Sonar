@@ -394,6 +394,15 @@ kbd { background: var(--surface); border: 1px solid var(--border); border-radius
 .phase-step.done     { background: rgba(78,205,196,.06); border-color: rgba(78,205,196,.3); color: rgba(78,205,196,.5); }
 .phase-step.upcoming { color: var(--border); }
 .phase-arrow         { color: var(--border); font-size: 14px; }
+.loop-bar-label      { color: #9b59b6; font-weight: bold; font-size: 13px; margin-right: 6px; }
+.loop-victory-hint   { margin-left: 10px; color: #f0d060; font-size: 11px; font-style: italic; white-space: nowrap; }
+
+/* ─── VICTORY UNLOCKS (экран Победы за Институт) ── */
+.victory-unlocks  { margin-top: 14px; padding-top: 10px; border-top: 1px solid #2a2a2a; }
+.unlock-title     { color: var(--teal); font-size: 12px; letter-spacing: 1px; margin-bottom: 6px; }
+.unlock-done      { color: #4ecdc4; font-size: 13px; margin-bottom: 4px; }
+.unlock-todo      { color: #444; font-size: 13px; margin-bottom: 4px; }
+.wip              { color: #383838; font-style: italic; }
 
 /* ─── BOSS BAR ───────────────────────────────────── */
 #boss-bar {

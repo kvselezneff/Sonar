@@ -2168,12 +2168,35 @@ function showShopOverlay(nextRoomIdx) {
 
 function showXyllVictory() {
   S.phase = 'won';
-  const overlay = document.getElementById('overlay');
-  document.getElementById('overlay-title').textContent  = '🌌 ПОБЕДА — КСИЛЛ ДОСТАВЛЕН';
-  document.getElementById('overlay-body').innerHTML =
-    'Ксилл в безопасности. Тайны Эфира переданы человечеству.<br>Ваша миссия завершена.';
-  document.getElementById('btn-overlay-action').textContent = 'Начать заново';
-  overlay.classList.remove('hidden');
+  hideShopOverlay();
+
+  const totalLoops = RUN.loopCount;
+  const totalTurns = RUN.stats.totalTurns + (S.turn || 0);
+  const totalOI    = RUN.stats.oiEarned   + (S.stats?.oiEarned || 0);
+  const totalMoney = RUN.stats.resEarned?.money ?? 0;
+
+  document.getElementById('overlay-title').textContent = '🌌 ПОБЕДА ЗА ИНСТИТУТ';
+  document.getElementById('overlay-sub').textContent   = 'Ксилл доставлен. Тайны Эфира переданы человечеству.';
+  document.getElementById('overlay-stats').innerHTML = `
+    <div class="report-row"><span class="report-key">Петель пройдено:</span><span class="report-val">${totalLoops}</span></div>
+    <div class="report-row"><span class="report-key">Ходов всего:</span><span class="report-val">${totalTurns}</span></div>
+    <div class="report-row"><span class="report-key">ОИ заработано:</span><span class="report-val">${totalOI}</span></div>
+    <div class="report-row"><span class="report-key">Монет заработано:</span><span class="report-val">${totalMoney}</span></div>
+    <div class="victory-unlocks">
+      <div class="unlock-title">— Режимы победы —</div>
+      <div class="unlock-done">✅ Победа за Институт — достигнута!</div>
+      <div class="unlock-todo">🔒 Победа за Госпиталь <span class="wip">(в разработке)</span></div>
+      <div class="unlock-todo">🔒 Победа за Чёрный Рынок <span class="wip">(в разработке)</span></div>
+    </div>
+  `;
+
+  const btn = document.getElementById('btn-overlay-action');
+  btn.textContent = '🔄 НОВЫЙ ЗАБЕГ';
+  btn.style.background = 'var(--teal)';
+  btn.style.color = 'var(--bg)';
+
+  document.getElementById('btn-overlay-warp')?.classList.add('hidden');
+  document.getElementById('overlay').classList.remove('hidden');
   SFX.victory();
 }
 
@@ -2277,7 +2300,7 @@ function shopAction(action) {
 // ─── TRANSITIONS ──────────────────────────────────────────────────
 function onOverlayBtn() {
   const ph  = S.phase;
-  if (ph === 'lost') { newGameRun(); return; }
+  if (ph === 'lost' || ph === 'won') { newGameRun(); return; }
   if (ph === 'boss-won' && currentRoomIdx >= ROOM_CONFIGS.length - 1) {
     startLoop(); return;
   }
@@ -2403,6 +2426,30 @@ function renderResBar() {
 }
 
 function renderPhaseBar() {
+  if (RUN && RUN.loopCount > 0) { renderLoopPhaseBar(); return; }
+
+  // Restore normal bar HTML if it was replaced by the loop bar
+  if (!document.getElementById('ps-room1')) {
+    document.getElementById('phase-bar').innerHTML =
+      `<span class="phase-step" id="ps-room1">◈ К1</span><span class="phase-arrow">→</span>` +
+      `<span class="phase-step" id="ps-shop1">🏛</span><span class="phase-arrow">→</span>` +
+      `<span class="phase-step" id="ps-room2">◈ К2</span><span class="phase-arrow">→</span>` +
+      `<span class="phase-step" id="ps-shop2">🏛</span><span class="phase-arrow">→</span>` +
+      `<span class="phase-step" id="ps-boss1">⚡ Б1</span><span class="phase-arrow">→</span>` +
+      `<span class="phase-step" id="ps-shop3">🏛</span><span class="phase-arrow">→</span>` +
+      `<span class="phase-step" id="ps-room3">◈ К3</span><span class="phase-arrow">→</span>` +
+      `<span class="phase-step" id="ps-shop4">🏛</span><span class="phase-arrow">→</span>` +
+      `<span class="phase-step" id="ps-room4">◈ К4</span><span class="phase-arrow">→</span>` +
+      `<span class="phase-step" id="ps-shop5">🏛</span><span class="phase-arrow">→</span>` +
+      `<span class="phase-step" id="ps-boss2">⚡ Б2</span><span class="phase-arrow">→</span>` +
+      `<span class="phase-step" id="ps-shop6">🏛</span><span class="phase-arrow">→</span>` +
+      `<span class="phase-step" id="ps-room5">◈ К5</span><span class="phase-arrow">→</span>` +
+      `<span class="phase-step" id="ps-shop7">🏛</span><span class="phase-arrow">→</span>` +
+      `<span class="phase-step" id="ps-room6">◈ К6</span><span class="phase-arrow">→</span>` +
+      `<span class="phase-step" id="ps-shop8">🏛</span><span class="phase-arrow">→</span>` +
+      `<span class="phase-step" id="ps-boss3">⚡ Б3</span>`;
+  }
+
   // Steps (17): K1 s1 K2 s2 B1 s3 K3 s4 K4 s5 B2 s6 K5 s7 K6 s8 B3
   // roomIdx*2 → step; shopVisible → shopNextRoomIdx*2-1
   let active = currentRoomIdx * 2;
@@ -2417,6 +2464,32 @@ function renderPhaseBar() {
     if (!el) return;
     el.className = 'phase-step ' + (idx < active ? 'done' : idx === active ? 'active' : 'upcoming');
   });
+}
+
+// ─── LOOP PHASE BAR ───────────────────────────────────────────────
+// Replaces the full K1→B3 bar with a compact К5→🏛→К6→🏛→Б3 loop indicator
+function renderLoopPhaseBar() {
+  const bar = document.getElementById('phase-bar');
+  // Last 3 entries of ROOM_CONFIGS are always К5(loop), К6(loop), Б3(loop)
+  const loopStart = ROOM_CONFIGS.length - 3;
+  const shopVisible = !document.getElementById('shop-overlay').classList.contains('hidden');
+  let active;
+  if (shopVisible) {
+    active = Math.max(0, (shopNextRoomIdx - loopStart) * 2 - 1);
+  } else {
+    active = (currentRoomIdx - loopStart) * 2;
+  }
+  active = Math.max(0, Math.min(4, active));
+
+  const steps = ['◈ К5', '🏛', '◈ К6', '🏛', '⚡ Б3'];
+  let html = `<span class="loop-bar-label">🔁 П${RUN.loopCount}</span>`;
+  steps.forEach((label, idx) => {
+    const cls = idx < active ? 'done' : idx === active ? 'active' : 'upcoming';
+    if (idx > 0) html += `<span class="phase-arrow">→</span>`;
+    html += `<span class="phase-step ${cls}">${label}</span>`;
+  });
+  html += `<span class="loop-victory-hint">Добудьте Ксилл для Победы!</span>`;
+  bar.innerHTML = html;
 }
 
 function renderBattery() {
@@ -2991,7 +3064,9 @@ function renderOverlay() {
     won:        '🏆 КОМНАТА ОЧИЩЕНА',
     lost:       '💀 ЗАБЕГ ОКОНЧЕН',
     escaped:    '🚪 ВЫХОД ИЗ КОМНАТЫ',
-    'boss-won': isFinalBoss ? '🌟 ФИНАЛ! ВСЕ БОССЫ ПОВЕРЖЕНЫ!' : '⚡ БОСС ПОВЕРЖЕН!',
+    'boss-won': isFinalBoss
+      ? (RUN.loopCount > 0 ? `🔁 ПЕТЛЯ ${RUN.loopCount} — ПРОЙДЕНА!` : '🏆 ВСЕ БОССЫ ПОВЕРЖЕНЫ!')
+      : '⚡ БОСС ПОВЕРЖЕН!',
   };
   document.getElementById('overlay-title').textContent = titles[ph] || '';
 
@@ -3003,8 +3078,10 @@ function renderOverlay() {
     lost:       'Вы погибли. Слава храбрым исследователям Эфира.',
     escaped:    `HP ${p.hp}/${p.hpMax}. ${S.ephemers.filter(e=>e.done).length}/${total} эфемеров. Миссия завершена.`,
     'boss-won': isFinalBoss
-      ? `${bossName} уничтожен! Все три босса повержены — забег завершён!`
-      : `${bossName} повержен за ${S.turn} ходов! Поздравляем — миссия завершена!`,
+      ? (RUN.loopCount > 0
+        ? `${bossName} снова повержен! Синие эфемеры: +${(RUN.loopCount + 1) * 10}% в следующей петле.`
+        : `${bossName} уничтожен! Режим «Победа за Институт» — добудьте Ксилл и доставьте в Магазин.`)
+      : `${bossName} повержен за ${S.turn} ходов!`,
   };
   document.getElementById('overlay-sub').textContent = subs[ph] || '';
 
@@ -3137,9 +3214,9 @@ function renderOverlay() {
     btn.style.background = 'var(--teal)';
     btn.style.color = 'var(--bg)';
   } else if (ph === 'boss-won' && isFinalBoss) {
-    btn.textContent = '🌟 НОВЫЙ ЗАБЕГ';
-    btn.style.background = '#f0d060';
-    btn.style.color = 'var(--bg)';
+    btn.textContent = RUN.loopCount > 0 ? '🔁 СЛЕДУЮЩАЯ ПЕТЛЯ' : '🔁 ВОЙТИ В ПЕТЛЮ';
+    btn.style.background = '#9b59b6';
+    btn.style.color = '#fff';
   } else if (hasNextRoom) {
     btn.textContent = '→ К ОРГАНИЗАЦИЯМ';
     btn.style.background = 'var(--teal)';
