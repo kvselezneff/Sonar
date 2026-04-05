@@ -2167,7 +2167,7 @@ function showShopOverlay(nextRoomIdx) {
 }
 
 function showXyllVictory() {
-  S.phase = 'won';
+  S.phase = 'institute-won';
   hideShopOverlay();
 
   const totalLoops = RUN.loopCount;
@@ -2300,7 +2300,7 @@ function shopAction(action) {
 // ─── TRANSITIONS ──────────────────────────────────────────────────
 function onOverlayBtn() {
   const ph  = S.phase;
-  if (ph === 'lost' || ph === 'won') { newGameRun(); return; }
+  if (ph === 'lost' || ph === 'institute-won') { newGameRun(); return; }
   if (ph === 'boss-won' && currentRoomIdx >= ROOM_CONFIGS.length - 1) {
     startLoop(); return;
   }
